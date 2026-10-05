@@ -1,0 +1,17 @@
+# Session 1791020727336, 2026-10-03 19:45:27--19:46:30 +10:00.
+# All 23 click collision crops match red-click-1820.txt. Captured speed=6.5, smoothing=60.
+# seq, origin scene X/Y, first authority/flag microseconds, final authority/flag withdrawal microseconds.
+# NPC=(51,49); native flag=(50,49); actual final=(49,48). First update=(originX+2,originY).
+# Bank service cache actions are API-double evidence, not recorded in the original trace.
+224 45 47 139919 741569
+465 45 47 161399 766312
+727 45 47 362459 966411
+981 45 47 124698 725798
+1247 45 47 235608 842511
+1482 45 47 376985 981961
+1724 45 47 380595 982527
+1933 45 47 439556 1044141
+2265 45 48 441996 1041317
+2543 45 48 318028 940752
+2760 45 48 223627 829098
+2961 45 48 462482 1065623
