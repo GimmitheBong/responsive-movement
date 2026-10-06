@@ -35,22 +35,26 @@ approval or a publication. The Plugin Hub's `runelite.version` was **1.13.1**.
 | Licensing | Retained both existing BSD copyright notices. Put the full license in `src/main/resources/META-INF/LICENSE`, so it survives the Hub's replacement standard build. Removed the redundant local custom JAR-copy step. Keep the root and bundled licenses synchronized. |
 | Arbitrary IDs | Removed hidden `markerMovingModel` / `markerStationaryModel` config accessors. The optional marker now uses only its original fixed orb (3351) and hides at alignment. Old stored model-ID values are unused; other persisted keys/groups are unchanged. |
 | Cleanup | Corrected GPU-loss cleanup ordering; renderer fallback closes body/effect/camera objects and clears overhead state. Shutdown captures retiring controllers, avoiding closing a later startup's controllers. The draw listener ignores inactive state. Expired effects and disabled/aligned markers unregister rather than remaining invisible registered objects. |
-| Diagnostics | Recording remains opt-in, asynchronous, bounded, and local. Converted filesystem operations to RuneLite Filepath. No network feature or third-party-server config was found. |
+| Diagnostics | Recording remains opt-in, asynchronous, bounded, and local. All filesystem operations use RuneLite Filepath obtained from getPluginDirectory(); legacyDataDirectory migrates the former folder. No network feature or third-party-server config was found. |
 | Documentation | Replaced the investigation-heavy root README with user setup, features, defaults, limitations, and diagnostics instructions. Preserved the previous development history and regression fixtures. |
 
-### Filepath and the existing diagnostic folder
+### Filepath and diagnostic-folder migration
 
-Repository guidance explicitly requires retaining
-`RuneLite.RUNELITE_DIR/responsive-movement`. The writer therefore obtains a
-constrained `Filepath` through `Filepath.Unchecked.getLegacyPluginDirectory`,
-only for that fixed directory, on the asynchronous writer. It does not use raw
-`Files` operations or accept a user-supplied path.
+The Filepath review follow-up adopts RuneLite's preferred `getPluginDirectory()`
+provider. The plugin descriptor sets `internalName="responsive-movement"` and
+`legacyDataDirectory="responsive-movement"`. RuneLite can migrate the former
+`.runelite/responsive-movement` folder to
+`.runelite/plugin-data/responsive-movement/` on first use when the managed folder
+does not already exist. If both folders exist, RuneLite retains the old folder
+rather than merging or overwriting it.
 
-RuneLite notes that `Filepath.Unchecked` access prevents automatic review; disclose
-this single legacy-directory access to reviewers. If they require the preferred
-`getPluginDirectory()` location, update repository guidance and migrate with
-`legacyDataDirectory="responsive-movement"`. That would move diagnostics to
-`.runelite/plugin-data/responsive-movement/`; it is not a silent folder rename.
+Startup captures the provider without resolving it. The ordered asynchronous
+writer resolves the directory and any migration before writing recorded batches.
+Disabled or empty recording queues no directory access; previously recorded
+batches still flush after stopping or shutdown.
+All creation, existence/size checks, rotation, and writes use Filepath methods.
+Production code uses no raw Java filesystem paths or `Filepath.Unchecked` calls.
+The old legacy-helper implementation is superseded by this follow-up.
 
 ### Behavior reviewers should understand
 
@@ -92,6 +96,14 @@ Results on 2026-10-05:
 
 The generated test report is `build/reports/tests/test/index.html`.
 
+Filepath follow-up verification: the complete build passes **536 tests**, zero
+failures/errors/skips. Four new isolated writer tests cover disabled/empty
+recording, off-thread directory resolution and ordered flush, bounded rotation,
+and recovery after directory errors. Production-source inspection finds no
+`Filepath.Unchecked`, raw Java `Files` operations, or raw filesystem path
+construction. The packaged license, icon, metadata, and documentation-link
+checks also pass.
+
 Run from the repository root:
 
 ```powershell
@@ -129,25 +141,28 @@ Only the user performs gameplay. Check:
    and plugin toggles; check Animation Smoothing on/off and both supported renderers.
 5. Adaptive camera, right-click menus, scene clicks, minimap conversion, and zoom
    retain correct native input behavior, including with the camera option disabled.
-6. Record/stop a trace and confirm new lines flush in the existing diagnostic folder.
+6. Record/stop a trace and confirm new lines flush in the managed diagnostic folder.
+   Where an old trace folder exists and the managed folder is absent, confirm the
+   old logs migrate together and recording appends normally. Keep the old folder
+   if both locations already exist; RuneLite does not merge that case automatically.
 7. Complete the still-pending door/gate, region-crossing, minimap, and interaction
    checks in [VALIDATION.md](VALIDATION.md).
 
-## Later submission steps (not performed)
+## Submission and future updates
 
 At the initial review, the local repository had no configured Git remote and the
 project files were untracked. A submission needs a public GitHub source
 repository with the intended files committed. Keep `.gradle/`, `build/`, local
 logs, and login/account data out of the source repository.
 
-Once runtime checks are confirmed, recheck the current Hub version and rules,
+For future submissions or updates, recheck the current Hub version and rules,
 then use RuneLite's submission instructions to add a marker under
 `plugin-hub/plugins/responsive-movement` with the public HTTPS repository URL
 and exact full commit hash. Include a concise visual-only behavior description,
-retained source attribution, renderer requirements, and the legacy Filepath
-access in the eventual review description. The icon is optional.
+retained source attribution, renderer requirements, and managed Filepath handling
+in the review description. The icon is optional.
 
 The initial preparation created no commit, push, release, Plugin Hub marker, or
 pull request. The user has now authorized recording validation, creating a public
 source repository, and committing/pushing the prepared project. Plugin Hub submission
-is a separate later step.
+was subsequently opened as [Plugin Hub PR #17858](https://github.com/runelite/plugin-hub/pull/17858).

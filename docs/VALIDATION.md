@@ -16,6 +16,27 @@ Movement** plugin must be disabled; the new plugin declares that conflict.
 
 ## Current status (supersedes dated pending notes below)
 
+**Filepath review follow-up: managed diagnostics implemented; 536 tests pass.**
+Startup now passes `getPluginDirectory()` to the asynchronous trace writer. All
+filesystem operations use the managed Filepath capability; the descriptor sets
+`legacyDataDirectory="responsive-movement"` so RuneLite can migrate the former
+folder to `.runelite/plugin-data/responsive-movement` on first recorded write.
+Resolution and migration stay off the client thread. The new isolated writer
+checks cover disabled/empty recording, off-thread resolution and ordered flush,
+bounded archive rotation, and recovery after directory errors.
+The full build passes **536 tests**, zero failures/errors/skips, including all
+532 earlier regressions and four new writer checks. The packaged BSD license,
+icon, metadata, and user/reviewer documentation links also pass verification.
+
+User check: launch `.\gradlew.bat run` using the
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts)
+guide, record a short trace, stop it, and confirm new lines in the managed folder.
+If the old folder exists and the managed folder does not, check the existing logs
+move together. If both exist, RuneLite preserves the old folder without merging.
+Confirm plugin disable/re-enable still flushes normally. This follow-up changes
+diagnostic ownership/location and requires the user's filesystem/runtime confirmation;
+the previous 117 HD movement confirmation below remains the tested baseline.
+
 **Publication preparation (2026-10-05): automated checks pass; user confirms expected runtime behavior.**
 After the preparation changes, the user reports **"everything seems to be working
 how it should"**, and identifies **117 HD** as the renderer used. This confirms

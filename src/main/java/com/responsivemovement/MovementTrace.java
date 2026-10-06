@@ -14,7 +14,6 @@ import java.util.function.Predicate;
 import net.runelite.api.Client;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.client.RuneLite;
 import net.runelite.client.util.Filepath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,9 +44,19 @@ final class MovementTrace
     private long count;
     private long lastFlush;
 
-    MovementTrace() { this(System::nanoTime, System::currentTimeMillis, MovementTrace::submit); }
+    @FunctionalInterface
+    interface Directory
+    {
+        Filepath get() throws IOException;
+    }
 
-    MovementTrace(LongSupplier nanoClock) { this(nanoClock, System::currentTimeMillis, MovementTrace::submit); }
+    MovementTrace(Directory directory)
+    {
+        this(System::nanoTime, System::currentTimeMillis, batch -> submit(batch, directory));
+    }
+
+    /** API-double controllers have no filesystem capability; startup supplies it explicitly. */
+    MovementTrace(LongSupplier nanoClock) { this(nanoClock, System::currentTimeMillis, batch -> false); }
 
     MovementTrace(LongSupplier nanoClock, LongSupplier wallClock, Predicate<List<Entry>> sink)
     {
@@ -199,10 +208,10 @@ final class MovementTrace
         lastFlush = nanoClock.getAsLong();
         // Keep recording after temporary writer backpressure. Sequence gaps
         // identify the dropped samples instead of silently ending the session.
-        if (!sink.test(batch)) { log.debug("Movement trace batch dropped: writer queue full"); }
+        if (!sink.test(batch)) { log.debug("Movement trace batch dropped: writer did not accept it"); }
     }
 
-    private static synchronized boolean submit(List<Entry> batch)
+    private static synchronized boolean submit(List<Entry> batch, Directory directoryProvider)
     {
         if (queuedBatches >= 4) { return false; }
         ++queuedBatches;
@@ -212,10 +221,9 @@ final class MovementTrace
             {
                 StringBuilder text = new StringBuilder(batch.size() * 350);
                 for (Entry entry : batch) { text.append(entry.line()); }
-                // Keep the existing diagnostics location, constrained to this
-                // plugin's legacy directory by RuneLite's supported Filepath API.
-                Filepath directory = Filepath.Unchecked.getLegacyPluginDirectory(
-                    RuneLite.RUNELITE_DIR.toPath(), ResponsiveMovementConfig.GROUP);
+                // Resolution can migrate legacy logs, so it must stay on the
+                // ordered writer too. Only the plugin supplies this capability.
+                Filepath directory = directoryProvider.get();
                 directory.createDirectories();
                 Filepath file = directory.joinSegment("movement.log");
                 if (file.exists() && file.size() >= MAX_FILE_BYTES)

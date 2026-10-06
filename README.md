@@ -88,7 +88,11 @@ guide. Only the user performs in-game checks; do not automate gameplay input.
 Enable **Movement → Record movement trace**, reproduce the issue, then turn it
 off to flush the pending samples. Report what happened, renderer, settings, and
 local timestamp with UTC offset. Logs stay on your computer in
-`%USERPROFILE%\.runelite\responsive-movement\` (or `~/.runelite/responsive-movement/`).
+`%USERPROFILE%\.runelite\plugin-data\responsive-movement\`
+(or `~/.runelite/plugin-data/responsive-movement/`). RuneLite migrates the former
+`.runelite/responsive-movement` folder on first recorded write when the managed
+folder does not yet exist. Directory resolution and migration run on the
+asynchronous writer, not the client thread.
 The writer retains about 64 MiB across eight rotating files. Logs contain
 positions, world/collision context, clicked NPC information, and movement
 decisions; nothing is uploaded automatically.

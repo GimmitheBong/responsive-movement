@@ -4,7 +4,9 @@ New diagnostic capture for the GE backtracking/zig-zag follow-up. This adds
 evidence; movement policies, native input and game actions are unchanged.
 Enable **Record movement trace** before reproducing and turn it off afterward.
 Use `movement.log` together with `movement.previous*.log` under
-`RuneLite.RUNELITE_DIR/responsive-movement`.
+`.runelite/plugin-data/responsive-movement`. RuneLite's managed Filepath provider
+migrates the former `.runelite/responsive-movement` folder on first use if the
+managed folder does not already exist. This does not change the trace schema.
 
 ## Record types
 

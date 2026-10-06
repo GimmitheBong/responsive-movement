@@ -38,6 +38,7 @@ import net.runelite.client.ui.DrawManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "Responsive Movement", internalName = "responsive-movement",
+    legacyDataDirectory = "responsive-movement",
     description = "Smooths the local player's displayed movement with native animations",
     tags = {"movement", "camera", "animation", "smoothing"}, conflicts = {"True Tile Movement"})
 public class ResponsiveMovementPlugin extends Plugin
@@ -120,7 +121,9 @@ public class ResponsiveMovementPlugin extends Plugin
     @Override
     protected void startUp()
     {
-        movement = new MovementController(client, config);
+        // Capture the managed Filepath provider without doing I/O at startup.
+        // The trace writer resolves/migrates the directory only when recording.
+        movement = new MovementController(client, config, System::nanoTime, new MovementTrace(this::getPluginDirectory));
         camera = new PresentationCamera(client, config);
         renderState = RenderState.NATIVE;
         primaryPress = null;

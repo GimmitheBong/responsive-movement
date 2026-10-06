@@ -597,7 +597,7 @@ mistake a same-ID scenery object for the player or access the movement controlle
 from the map-loader thread.
 
 The optional trace writes bounded, ordered immutable snapshots asynchronously to
-`.runelite/responsive-movement/movement.log`. It records both native fallbacks and
+`.runelite/plugin-data/responsive-movement/movement.log`. It records both native fallbacks and
 custom movement, including `trueTileIndicator` (the local-player world location
 converted to local coordinates, matching True Tile Player Indicators), with no
 per-frame scene scan or client-thread file I/O. While recording, each observed
@@ -648,9 +648,14 @@ for position samples. Click records also carry timestamps; collision columns
 reference their owning click. Batches hold at most 128 entries/eight click contexts,
 and the writer queue holds at most four batches. No worker reads live client state.
 
-Filesystem operations use RuneLite `Filepath` with its constrained legacy-directory
-helper to preserve this repository's required diagnostics location. That single
-`Filepath.Unchecked` call is disclosed for human review in [PUBLISHING.md](PUBLISHING.md).
+Filesystem operations use RuneLite `Filepath` obtained from the plugin's
+`getPluginDirectory()` provider. Startup captures the provider without resolving it;
+the ordered asynchronous writer resolves the directory, performs any native
+`legacyDataDirectory` migration, rotates archives, and writes the batch. The
+descriptor retains `legacyDataDirectory="responsive-movement"` for the former
+folder. Production code constructs no raw filesystem path and uses no
+`Filepath.Unchecked` API. API-double controllers without an injected writer have
+no filesystem capability. See [PUBLISHING.md](PUBLISHING.md).
 
 ## Validation boundary
 

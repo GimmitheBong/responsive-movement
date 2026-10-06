@@ -45,7 +45,7 @@ public interface ResponsiveMovementConfig extends Config
     default boolean explainStarts() { return false; }
 
     @ConfigItem(keyName = "recordTrace", name = "Record movement trace", position = 6,
-        description = "Record until switched off; retains about 64 MiB of rotating logs in .runelite/responsive-movement", section = MOVEMENT)
+        description = "Record until switched off; retains about 64 MiB of rotating logs in .runelite/plugin-data/responsive-movement", section = MOVEMENT)
     default boolean recordTrace() { return false; }
 
     @ConfigItem(keyName = "clickSmoothingMs", name = "Walk-click smoothing (ms)", position = 7,

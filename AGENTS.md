@@ -19,7 +19,9 @@
   published render snapshot there, never live controller/model state.
 - Do not scan the scene per frame. No blocking I/O on the client thread, sleeps,
   or shutdown waits. Diagnostic logging uses DEBUG and writes asynchronously
-  inside RuneLite.RUNELITE_DIR/responsive-movement through RuneLite Filepath.
+  through getPluginDirectory() and RuneLite Filepath inside
+  .runelite/plugin-data/responsive-movement. Keep legacyDataDirectory migration
+  for the former responsive-movement folder; resolve it only on the writer.
 - Keep cleanup symmetric: restore actor selectors/camera and remove objects,
   overlays, mouse listeners, draw listeners, and render callbacks on shutdown.
 - New config keys use the responsive-movement group. Never rename persisted
