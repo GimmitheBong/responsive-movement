@@ -922,6 +922,7 @@ public class NpcApproachControllerTest
         int builtIdle = -1, builtPose = -1, builtAction = -1, builtActionFrame = -1, modelBuilds;
         double speed = 1;
         int smoothing = 50;
+        int turnSpeed = 30;
         final int[][] flags = new int[104][104];
         final int[][][] heights = new int[4][105][105];
         final byte[][][] settings = new byte[4][104][104];
@@ -967,6 +968,7 @@ public class NpcApproachControllerTest
                 @Override public boolean responsiveStarts() { return starts; }
                 @Override public double movementSpeed() { return speed * 5; }
                 @Override public int clickSmoothingMs() { return smoothing; }
+                @Override public int turnSpeed() { return turnSpeed; }
                 @Override public boolean recordTrace() { return traceEntries != null; }
                 @Override public boolean originalWhenAligned() { return originalWhenAligned; }
                 @Override public boolean faceInteractionsOnArrival() { return faceInteractionsOnArrival; }

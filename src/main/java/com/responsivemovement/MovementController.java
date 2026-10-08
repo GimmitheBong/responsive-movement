@@ -833,6 +833,7 @@ final class MovementController
         }
         if (next != null)
         {
+            if (!interactionApproach) { next.pendingWalkConfirmation(); }
             startDecision = shortNpcPair ? "started-npc-run-pair" : provisionalNpc ? "started-npc-approach" : "started";
             path = next;
             if (interactionApproach)

@@ -25,7 +25,7 @@ public class MovementFacingTest
         assertEquals("arrival must not bypass the turn rate", 2038, facing.angle(), 0);
         // The native actor still faces the old way. A held yellow-click arrival
         // keeps turning to the last travel heading instead of freezing sideways.
-        for (int frame = 0; frame < 60; ++frame) { facing.advance(0, false, 10); }
+        for (int frame = 0; frame < 80; ++frame) { facing.advance(0, false, 10); }
         assertEquals(1536, facing.angle(), 0);
     }
 

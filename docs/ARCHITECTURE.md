@@ -456,6 +456,60 @@ The user subsequently confirmed these reported stall/backtracking corrections
 worked well in-game; this is confirmation of the tested situations, not of every
 collision layout.
 
+The 2026-10-08 21:43 spam-click circle follow-up retains a Walk's last travel tangent
+when selecting a fresh checked connector. A still-forward candidate can be preferred
+within the existing one-tile travel allowance; explicit reversals keep normal selection.
+Fresh Walk/forward-Walk-authority joins can then spend a one-shot local cubic blend
+inside the occupied proven knight parallelogram or fully checked diagonal square.
+All controls and the endpoint must be inside that convex region and the existing
+forecast gap. Its endpoint rejoins the same leg within roughly 120 ms of ordinary
+travel; no whole-itinerary curve or new logical tile is added. MovementPath integrates
+max-axis arc length under its existing clock/rate budget, including any remaining
+time after the blend. Unsafe/unsupported joins retain straight checked connectors.
+Scene translation shifts active controls and preserves arc progress; cancellation
+uses the existing checked corridor recovery. Traces publish immutable `joins` controls.
+The captured replay shows lower aggregate velocity discontinuity at the 20-ms grid;
+the 579-test checkpoint passed, and the user subsequently reports it seems to be working
+well for the tested situations. See
+`agent-work/circle-2143/CHECKPOINT.md` for evidence limits.
+
+The 22:29/22:37 follow-up extends stale-reversal recognition from the first logical
+step's line to the direction of the whole latest itinerary. A late knight endpoint
+must not confirm a newly retargeted route toward its already-true goal and append an
+extra return trip. Checked forward logical/construction-origin evidence still confirms
+normally, including a necessary detour whose first step moves away from the geometric
+goal. Stale authority updates the true endpoint within the same response/chain/gap
+bounds and grants no renewal; timeout and collision still use checked recovery.
+Fresh Walk knight destinations can now use `retargetCheckedKnight` to retain the whole
+authority-anchored chord if its proven parallelogram contains the displayed fraction.
+A fraction within a quarter tile of authority may first finish its proven occupied
+connector. Both step orderings, native run eligibility, queue/clock and bounds still
+apply. That tiny alignment faces the onward chord rather than the preceding click.
+Unsupported geometry retains the existing checked retarget selection. Local cubic
+facing now blends monotonically between intended endpoint tangents, rather than
+following a derivative that briefly overshoots the terminal heading; spatial continuity
+still uses the true derivative, and the remaining leg adopts its correct residual heading.
+The eleven new checks and full 590-test build pass; in-game confirmation is pending.
+See `agent-work/repeated-knights-2237/CHECKPOINT.md`.
+
+The user subsequently confirms substantially improved circles and most reciprocal
+knights. The 23:33 marked-pause follow-up handles late authority at a near visible
+endpoint: a fresh Walk may preserve a complete checked knight from the occupied
+leg's forward endpoint within a quarter tile, with the same bounded reversible
+authority connection. It does not choose the old start merely to exploit a new chord.
+`sharedCorridorCrossing` can join the occupied and new convex proven corridors along
+one visible straight line. Its bounded click-time entry calculation accepts a rounded
+crossing only inside both regions; each queue subsegment retains its own corridor for
+collision validation, cancellation and translation. There is no new scene scan or clock.
+Where no shared straight crossing is proven, checked alignment/corners remain required.
+Fresh visible-idle scene/minimap Walk starts also use `pendingWalkConfirmation`, sharing
+the existing moving-retarget rule when a new goal equals old authority but display is
+elsewhere. Delayed preceding-click endpoints must not create extra confirmed return debt.
+Original response/chain/gap limits and real matching confirmation/recovery remain.
+All 81 new clicks replay at three cadences, alongside geometry/collision/idle guards;
+the full 598-test build passes. In-game confirmation of this follow-up is pending.
+See `agent-work/marked-knights-2333/CHECKPOINT.md` for marker and replay evidence limits.
+
 There is no five-by-five animation moveset table, leap controller, Woox-walk
 detector, kill celebration, tick-perfect combo counter, or older normal-movement
 tween underneath this engine.
@@ -511,6 +565,9 @@ is no arrival-fraction acceleration. Held arrivals retain the travel heading
 and finish turning after positional movement ends. Once native facing takes
 over, a later idle click holds the current displayed angle rather than resuming
 an old route's heading. Fractional orientation is retained across updates.
+The circle follow-up integrates a short exponential tail over the last 32 orientation
+units (about 5.6 degrees), avoiding an abrupt capped-turn stop on small headings.
+It retains the same maximum turn budget and frame-splitting independence for a held target.
 
 The optional Movement setting **Face interactions on arrival** (`faceInteractionsOnArrival`,
 default off) captures `InteractionFacing` evidence for non-combat NPC options and

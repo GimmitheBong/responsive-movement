@@ -147,6 +147,19 @@ fields and therefore need explicitly labelled effect/primary-clock doubles in re
 Missing corridor coordinates are `-1,-1`; boolean values are 0/1. The current
 sample's displayed position may already be partway through the first leg.
 
+The 23:33 marked-handoff follow-up can use a sub-tile `endX,endY` at the shared crossing
+of two proven corridors. Such a queue endpoint need not be a logical tile centre. Its
+incoming and onward legs retain their separate corridor proofs; the ordered logical
+route still records tile centres. No trace schema change or extra movement clock is added.
+
+The 21:43 circle follow-up adds `joins`, eight floating-point local coordinates per
+queued leg: **startX,startY,control1X,control1Y,control2X,control2Y,endX,endY**. `NaN`
+entries mean that leg has no active local cubic blend. The blend endpoint may precede
+the leg's tile endpoint; it rejoins that same checked leg. These are immutable geometry
+copies, not a second route/clock. Position samples give current progress. Controls shift
+on scene rebasing and the snapshot changes when a blend starts/finishes; continuous
+arc progress is not emitted as a new route every frame. Older captures omit this field.
+
 `stateFlags` bit values:
 
 | Value | Meaning |
@@ -164,6 +177,7 @@ sample's displayed position may already be partway through the first leg.
 | 1024 | adjacent-melee path owns the bounded combat movement credit |
 | 2048 | one movement credit available from the click or checked forward player authority |
 | 4096 | slower post-arrival combat pursuit / exponential checked last-leg pacing |
+| 8192 | a Walk join has a pending one-shot tangent-continuity preparation |
 
 ## Lifetime and bounds
 

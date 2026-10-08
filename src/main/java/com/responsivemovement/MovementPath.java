@@ -62,6 +62,9 @@ final class MovementPath
     private double turnFraction;
     private double turnX;
     private double turnY;
+    private double tangentX;
+    private double tangentY;
+    private boolean walkContinuity;
 
     private static final class Leg
     {
@@ -72,6 +75,8 @@ final class MovementPath
         boolean running;
         double headingX = Double.NaN;
         double headingY = Double.NaN;
+        boolean joinPrepared;
+        JoinCurve curve;
 
         Leg(LocalPoint start, LocalPoint end, boolean running, boolean pair, LocalPoint corridor)
         {
@@ -370,6 +375,19 @@ final class MovementPath
             : !onSegment(active.start, active.end) || !collision.test(active.start, active.end) ||
                 !collision.test(active.end, active.start)) { return null; }
 
+        MovementPath nativeKnight = retargetCheckedKnight(active, confirmed, destination, run, now);
+        if (nativeKnight != null) { return nativeKnight; }
+        // Authority can still describe the preceding click while its preview is
+        // just beside this occupied endpoint. Keep a complete checked knight
+        // from that endpoint rather than choosing a one-tile staging corner.
+        LocalPoint visibleAnchor = active.end;
+        if (!visibleAnchor.equals(confirmed) && tileCenter(visibleAnchor) &&
+            Math.max(Math.abs(x - visibleAnchor.getX()), Math.abs(y - visibleAnchor.getY())) <= TILE / 4.0)
+        {
+            MovementPath visibleKnight = retargetCheckedKnight(active, visibleAnchor, destination, run, now);
+            if (visibleKnight != null) { return visibleKnight; }
+        }
+
         // Only a fresh user click may replace an obsolete confirmed visual
         // itinerary. Authority itself remains unchanged. Ordinary reconciliation
         // and native interaction waypoints keep their confirmed-prefix guards.
@@ -382,6 +400,8 @@ final class MovementPath
         }
         MovementPath best = null;
         MovementPath forward = null;
+        MovementPath continuous = null;
+        double continuousScore = Double.POSITIVE_INFINITY;
         double bestDistance = Double.POSITIVE_INFINITY;
         double bestGeometry = Double.POSITIVE_INFINITY;
         for (LocalPoint anchor : anchors)
@@ -397,6 +417,26 @@ final class MovementPath
                     (long) (active.end.getY() - active.start.getY()) * (destination.getY() - active.end.getY()) >= 0 &&
                 !next.clickedPath.contains(active.start)) { forward = next; }
             double geometry = remainingGeometry(next);
+            Leg first = next.legs.peekFirst();
+            double targetX = destination.getX() - x, targetY = destination.getY() - y;
+            // A still-forward click need not trade its current tangent for a
+            // slightly shorter sideways connector. Prefer a checked forward
+            // candidate within the existing one-tile travel allowance. Explicit
+            // reversals and routes with no forward candidate keep normal selection.
+            if (first != null && tangentX * targetX + tangentY * targetY > 0)
+            {
+                double fx = first.end.getX() - x, fy = first.end.getY() - y;
+                double dot = tangentX * fx + tangentY * fy;
+                if (dot > 0)
+                {
+                    double cosine = dot / (Math.hypot(tangentX, tangentY) * Math.hypot(fx, fy));
+                    double score = length + TILE * (1 - cosine);
+                    if (score < continuousScore - EPS)
+                    {
+                        continuous = next; continuousScore = score;
+                    }
+                }
+            }
             if (length < bestDistance - EPS || Math.abs(length - bestDistance) <= EPS && geometry < bestGeometry - EPS)
             {
                 best = next; bestDistance = length; bestGeometry = geometry;
@@ -413,7 +453,68 @@ final class MovementPath
             // onward route does not itself return through the occupied edge.
             if (backwards < -EPS && remainingTravel(forward) <= bestDistance + TILE) { return forward; }
         }
+        if (continuous != null && remainingTravel(continuous) <= bestDistance + TILE) { return continuous; }
         return best;
+    }
+
+    /** Preserve a whole checked knight from authority or a nearby occupied endpoint. */
+    private MovementPath retargetCheckedKnight(Leg occupied, LocalPoint anchor, LocalPoint destination, boolean run, long now)
+    {
+        if (!run || !clearKnight(anchor, destination, collision)) { return null; }
+        MovementPath next = anticipate(anchor, confirmed, destination, true, now, multiplier,
+            restartDeadline(now, confirmed), collision);
+        if (next == null || next.legs.size() != 1 || next.legs.peekFirst().corridorEnd == null) { return null; }
+        int gap = next.forecastSteps() + 1;
+        if (distance(position(), confirmed) > gap * TILE || distance(anchor, confirmed) > gap * TILE) { return null; }
+        BiPredicate<LocalPoint, LocalPoint> reversible = (a, b) -> collision.test(a, b) && collision.test(b, a);
+        if (checkedRoute(confirmed, anchor, reversible, gap) == null &&
+            MovementRoute.find(confirmed, anchor, gap, reversible) == null) { return null; }
+        Leg knight = next.legs.peekFirst();
+        knight.headingX = knight.headingY = Double.NaN;
+        if (!insideCheckedCorridor(knight, x, y))
+        {
+            // A click just before reaching the old endpoint can be a fraction
+            // outside the new corridor. A shared corridor crossing can continue
+            // straight without returning to the origin; otherwise finish only
+            // the tiny checked alignment. Both regions are independently proven.
+            if (Math.max(Math.abs(x - anchor.getX()), Math.abs(y - anchor.getY())) > TILE / 4.0 ||
+                !(occupied.corridorEnd != null && insideCheckedCorridor(occupied, x, y) &&
+                    insideCheckedCorridor(occupied, anchor.getX(), anchor.getY()) ||
+                    onSegment(occupied.start, occupied.end) &&
+                        (anchor.equals(occupied.start) || anchor.equals(occupied.end)))) { return null; }
+            LocalPoint crossing = sharedCorridorCrossing(occupied, knight, destination);
+            Leg connector = occupied.endingAt(crossing == null ? anchor : crossing, running());
+            // Its very short positional alignment should not make the body face
+            // back toward the preceding click before turning into the new chord.
+            connector.headingX = destination.getX() - x;
+            connector.headingY = destination.getY() - y;
+            connector.joinPrepared = true;
+            next.legs.addFirst(connector);
+        }
+        next.x = x; next.y = y; next.lastNanos = lastNanos;
+        next.reversalPreview = true;
+        next.tangentX = tangentX; next.tangentY = tangentY;
+        next.pendingWalkConfirmation();
+        return next.clear() ? next : null;
+    }
+
+    /** A straight join is safe when its crossing lies inside both proven convex corridors. */
+    private LocalPoint sharedCorridorCrossing(Leg occupied, Leg next, LocalPoint goal)
+    {
+        if (occupied.corridorEnd == null || !insideCheckedCorridor(occupied, x, y)) { return null; }
+        double dx = goal.getX() - x, dy = goal.getY() - y;
+        double lo = 0, hi = 1;
+        // A segment ending inside a convex region has one entry interval. Find
+        // its entry; endpoint containment then proves each complete subsegment.
+        // This is bounded geometry at a click, not a scene/collision search.
+        for (int i = 0; i < 40; ++i)
+        {
+            double t = (lo + hi) / 2;
+            if (insideCheckedCorridor(next, x + dx * t, y + dy * t)) { hi = t; } else { lo = t; }
+        }
+        LocalPoint crossing = new LocalPoint((int) Math.round(x + dx * hi), (int) Math.round(y + dy * hi), goal.getWorldView());
+        return insideCheckedCorridor(occupied, crossing.getX(), crossing.getY()) &&
+            insideCheckedCorridor(next, crossing.getX(), crossing.getY()) ? crossing : null;
     }
 
     private MovementPath walkFromAnchor(Leg connector, LocalPoint destination, boolean run, long now)
@@ -468,16 +569,23 @@ final class MovementPath
         }
         next.x = x; next.y = y;
         next.lastNanos = lastNanos;
+        next.inheritWalkContinuity(this);
         next.reversalPreview = next.clickedPath.size() > 1;
         // This is a fresh click, not confirmation of its newly built itinerary.
         // The old true tile may already equal its goal while an older click's
         // opposite step is still in flight. Keep that route pending so the
         // existing bounded stale-tick handling cannot append a spurious return.
-        if (!next.legs.isEmpty() && destination.equals(confirmed) && !position().equals(confirmed))
-        {
-            next.speculative = next.reversalPreview = true;
-        }
+        next.pendingWalkConfirmation();
         return next;
+    }
+
+    /** Fresh idle Walks and moving replacements share the same already-true-goal rule. */
+    void pendingWalkConfirmation()
+    {
+        if (!legs.isEmpty() && confirmed.equals(clickedDestination()) && !position().equals(confirmed))
+        {
+            speculative = reversalPreview = true;
+        }
     }
 
     /** Re-anchor a fresh walk to new off-route authority through the occupied checked edge. */
@@ -503,7 +611,9 @@ final class MovementPath
             forecast.running = true;
             for (Leg leg : forecast.legs) { leg.running = true; }
         }
-        return joinForecast(forecast, dx, dy);
+        MovementPath joined = joinForecast(forecast, dx, dy);
+        if (joined != null) { joined.inheritWalkContinuity(this); }
+        return joined;
     }
 
     /** The same checked forward-authority join for a captured object/item approach. */
@@ -621,6 +731,13 @@ final class MovementPath
         next.combatCredit = forecast.combatCredit;
         next.combatTrailing = forecast.combatTrailing;
         return next;
+    }
+
+    private void inheritWalkContinuity(MovementPath previous)
+    {
+        // This is a one-shot join, not a new movement owner or prediction credit.
+        walkContinuity = true;
+        tangentX = previous.tangentX; tangentY = previous.tangentY;
     }
 
     void armCombat(long now)
@@ -1356,7 +1473,16 @@ final class MovementPath
     private boolean retainPendingReversal(LocalPoint endpoint)
     {
         if (!reversalPreview || !speculative || !agreement || replacement || recovering ||
-            lastNanos >= deadline || clickedPath.isEmpty()) { return false; }
+            lastNanos >= deadline || lastNanos >= chainDeadline || clickedPath.isEmpty()) { return false; }
+        int index = clickedPath.indexOf(endpoint);
+        if (index >= 0 && (awaitingOrigin && index == 0 || confirmedClickIndex >= 0 &&
+            index > confirmedClickIndex && index <= confirmedClickIndex + 2))
+        {
+            // Checked forward logical progress (including an actual construction
+            // origin) can legitimately move away from the geometric goal around
+            // an obstacle. It is route evidence, not a stale reverse endpoint.
+            return false;
+        }
         boolean opposite;
         if (clickedPath.size() == 1)
         {
@@ -1367,9 +1493,13 @@ final class MovementPath
         }
         else
         {
-            LocalPoint first = clickedPath.get(1);
-            int dx = first.getX() - origin.getX(), dy = first.getY() - origin.getY();
-            opposite = sameLine(origin, first, endpoint) && sameLine(origin, first, confirmed) &&
+            LocalPoint goal = clickedDestination();
+            int dx = goal.getX() - origin.getX(), dy = goal.getY() - origin.getY();
+            // A knight's first logical step is cardinal, but its real published
+            // endpoint is off that line. Compare the whole latest itinerary: a
+            // delayed preceding endpoint must not confirm its construction origin
+            // or append a return trip behind the newly clicked reversal.
+            opposite =
                 (long) dx * (endpoint.getX() - confirmed.getX()) + (long) dy * (endpoint.getY() - confirmed.getY()) < 0;
         }
         if (!opposite) { return false; }
@@ -1735,6 +1865,39 @@ final class MovementPath
                 x = leg.end.getX(); y = leg.end.getY(); legs.removeFirst(); continue;
             }
             double travelRate = combatTrailing && !recovering ? rate(false) * 0.65 : rate(leg.running);
+            if (walkContinuity && !recovering && !combatTracking && npcMin == null && !leg.joinPrepared)
+            {
+                leg.joinPrepared = true;
+                leg.curve = checkedJoin(leg);
+                walkContinuity = false;
+            }
+            if (leg.curve != null)
+            {
+                JoinCurve curve = leg.curve;
+                double remaining = curve.length - curve.travel;
+                double spend = Math.min(remaining, travelRate * millis);
+                if (spend > EPS)
+                {
+                    curve.travel += spend;
+                    double t = curve.parameter(curve.travel);
+                    x = curve.x(t); y = curve.y(t);
+                    tangentX = curve.dx(t); tangentY = curve.dy(t);
+                    // A local curve returning to its straight leg can briefly
+                    // steer past that leg's tangent before returning. Keep body
+                    // facing monotonic between the intended endpoint headings;
+                    // retain the real derivative only for positional continuity.
+                    turnX = curve.facingX(t); turnY = curve.facingY(t);
+                    turnFraction = Math.min(1, spend / Math.max(EPS, remaining));
+                    lastLeg = leg;
+                }
+                if (curve.travel + EPS < curve.length) { break; }
+                x = curve.ex; y = curve.ey;
+                millis = Math.max(0, millis - spend / travelRate);
+                leg.curve = null;
+                leg.headingX = leg.end.getX() - x; leg.headingY = leg.end.getY() - y;
+                if (Math.abs(x - leg.end.getX()) < EPS && Math.abs(y - leg.end.getY()) < EPS) { legs.removeFirst(); }
+                continue;
+            }
             double duration = distance / travelRate;
             if (millis > 0)
             {
@@ -1743,6 +1906,7 @@ final class MovementPath
                 if (!Double.isFinite(leg.headingX)) { leg.headingX = dx; leg.headingY = dy; }
                 turnX = leg.headingX;
                 turnY = leg.headingY;
+                tangentX = dx; tangentY = dy;
             }
             if (easingNpcStart && speculative && agreement && !replacement && !recovering)
             {
@@ -1790,6 +1954,126 @@ final class MovementPath
             x = leg.end.getX(); y = leg.end.getY();
             millis = Math.max(0, millis - duration);
             legs.removeFirst();
+        }
+        if (legs.isEmpty()) { tangentX = tangentY = 0; }
+    }
+
+    /** Blend a Walk join only inside the convex region proven by both checked orderings. */
+    private JoinCurve checkedJoin(Leg leg)
+    {
+        if (leg.corridorEnd == null || !insideCheckedCorridor(leg, x, y) ||
+            !insideCheckedCorridor(leg, leg.end.getX(), leg.end.getY()) ||
+            !clearCorridor(leg.start, leg.corridorEnd, collision)) { return null; }
+        double dx = leg.end.getX() - x, dy = leg.end.getY() - y;
+        double incoming = Math.max(Math.abs(tangentX), Math.abs(tangentY));
+        double distance = Math.max(Math.abs(dx), Math.abs(dy));
+        if (incoming < EPS || distance < 8 || tangentX * dx + tangentY * dy <= 0 ||
+            Math.abs(tangentX * dy - tangentY * dx) < EPS) { return null; }
+        // A local blend rejoins this same leg within roughly 120 ms of ordinary
+        // travel. Do not bow the whole itinerary or change distant anchor choices.
+        double blend = Math.min(distance, rate(leg.running) * 120);
+        double endX = x + dx / distance * blend, endY = y + dy / distance * blend;
+        double reach = blend * 0.4;
+        // Shrink a boundary-adjacent tangent instead of leaving the proven region.
+        for (int attempt = 0; attempt < 5 && reach >= 4; ++attempt, reach *= 0.5)
+        {
+            double cx = x + tangentX / incoming * reach, cy = y + tangentY / incoming * reach;
+            double tx = endX - dx / distance * reach, ty = endY - dy / distance * reach;
+            if (insideCheckedCorridor(leg, cx, cy) && insideCheckedCorridor(leg, tx, ty) &&
+                withinForecastGap(cx, cy) && withinForecastGap(tx, ty) && withinForecastGap(endX, endY))
+            {
+                return new JoinCurve(x, y, cx, cy, tx, ty, endX, endY);
+            }
+        }
+        return null;
+    }
+
+    private boolean withinForecastGap(double px, double py)
+    {
+        return Math.max(Math.abs(px - confirmed.getX()), Math.abs(py - confirmed.getY())) <= (forecastSteps() + 1) * TILE;
+    }
+
+    /** Cubic geometry only; MovementPath's one clock spends its exact max-axis arc length. */
+    private static final class JoinCurve
+    {
+        final double sx, sy, cx, cy, tx, ty, ex, ey, length;
+        final double[] breaks;
+        double travel;
+
+        JoinCurve(double sx, double sy, double cx, double cy, double tx, double ty, double ex, double ey)
+        {
+            this.sx = sx; this.sy = sy; this.cx = cx; this.cy = cy;
+            this.tx = tx; this.ty = ty; this.ex = ex; this.ey = ey;
+            double ax = cx - sx, ay = cy - sy, bx = 2 * (tx - 2 * cx + sx), by = 2 * (ty - 2 * cy + sy);
+            double qx = ex - 3 * tx + 3 * cx - sx, qy = ey - 3 * ty + 3 * cy - sy;
+            List<Double> points = new ArrayList<>(); points.add(0.0); points.add(1.0);
+            roots(points, ax, bx, qx); roots(points, ay, by, qy);
+            roots(points, ax - ay, bx - by, qx - qy); roots(points, ax + ay, bx + by, qx + qy);
+            breaks = points.stream().mapToDouble(Double::doubleValue).filter(t -> t >= 0 && t <= 1).sorted().distinct().toArray();
+            length = arc(1);
+        }
+
+        private static void roots(List<Double> points, double a, double b, double c)
+        {
+            if (Math.abs(c) < EPS)
+            {
+                if (Math.abs(b) >= EPS) { points.add(-a / b); }
+                return;
+            }
+            double discriminant = b * b - 4 * c * a;
+            if (discriminant < 0) { return; }
+            double root = Math.sqrt(discriminant);
+            points.add((-b - root) / (2 * c)); points.add((-b + root) / (2 * c));
+        }
+        double x(double t) { double u = 1 - t; return u * u * u * sx + 3 * u * u * t * cx + 3 * u * t * t * tx + t * t * t * ex; }
+        double y(double t) { double u = 1 - t; return u * u * u * sy + 3 * u * u * t * cy + 3 * u * t * t * ty + t * t * t * ey; }
+        double dx(double t) { double u = 1 - t; return 3 * (u * u * (cx - sx) + 2 * u * t * (tx - cx) + t * t * (ex - tx)); }
+        double dy(double t) { double u = 1 - t; return 3 * (u * u * (cy - sy) + 2 * u * t * (ty - cy) + t * t * (ey - ty)); }
+
+        double facingX(double t) { return facing(cx - sx, ex - tx, t); }
+        double facingY(double t) { return facing(cy - sy, ey - ty, t); }
+        private double facing(double from, double to, double t)
+        {
+            double blend = t * t * (3 - 2 * t);
+            double incoming = Math.max(Math.abs(cx - sx), Math.abs(cy - sy));
+            double outgoing = Math.max(Math.abs(ex - tx), Math.abs(ey - ty));
+            return from / incoming * (1 - blend) + to / outgoing * blend;
+        }
+
+        double arc(double t)
+        {
+            double sum = 0;
+            for (int i = 1; i < breaks.length; ++i)
+            {
+                double a = breaks[i - 1], b = Math.min(t, breaks[i]);
+                if (b <= a) { continue; }
+                double mid = (a + b) / 2;
+                // Breakpoints fix the dominant axis and its sign. Simpson's rule
+                // integrates that quadratic derivative exactly, not per-frame sampling.
+                boolean horizontal = Math.abs(dx(mid)) >= Math.abs(dy(mid));
+                sum += (b - a) / 6 * (horizontal ? Math.abs(dx(a)) + 4 * Math.abs(dx(mid)) + Math.abs(dx(b)) :
+                    Math.abs(dy(a)) + 4 * Math.abs(dy(mid)) + Math.abs(dy(b)));
+            }
+            return sum;
+        }
+
+        double parameter(double distance)
+        {
+            if (distance >= length) { return 1; }
+            double lo = 0, hi = 1;
+            for (int i = 0; i < 28; ++i)
+            {
+                double mid = (lo + hi) / 2;
+                if (arc(mid) < distance) { lo = mid; } else { hi = mid; }
+            }
+            return lo;
+        }
+
+        JoinCurve shifted(int dx, int dy)
+        {
+            JoinCurve copy = new JoinCurve(sx + dx, sy + dy, cx + dx, cy + dy, tx + dx, ty + dy, ex + dx, ey + dy);
+            copy.travel = travel;
+            return copy;
         }
     }
 
@@ -1909,6 +2193,7 @@ final class MovementPath
     {
         private final List<LocalPoint> route, preview;
         private final int[] queue;
+        private final double[] joins;
         private final LocalPoint origin, confirmed, npcMin, npcMax, npcArrivalGoal, counterNativeGoal, counterBoundaryGoal;
         private final int flags, confirmedClickIndex, confirmedPreviewIndex, reserve;
         private final long deadline, chainDeadline;
@@ -1918,7 +2203,10 @@ final class MovementPath
         {
             route = List.copyOf(path.clickedPath); preview = List.copyOf(path.preview);
             queue = new int[path.legs.size() * 8];
+            joins = new double[path.legs.size() * 8];
+            Arrays.fill(joins, Double.NaN);
             int index = 0;
+            int joinIndex = 0;
             for (Leg leg : path.legs)
             {
                 queue[index++] = leg.start.getX(); queue[index++] = leg.start.getY();
@@ -1926,6 +2214,14 @@ final class MovementPath
                 queue[index++] = leg.corridorEnd == null ? -1 : leg.corridorEnd.getX();
                 queue[index++] = leg.corridorEnd == null ? -1 : leg.corridorEnd.getY();
                 queue[index++] = leg.running ? 1 : 0; queue[index++] = leg.firstOfPair ? 1 : 0;
+                if (leg.curve != null)
+                {
+                    joins[joinIndex] = leg.curve.sx; joins[joinIndex + 1] = leg.curve.sy;
+                    joins[joinIndex + 2] = leg.curve.cx; joins[joinIndex + 3] = leg.curve.cy;
+                    joins[joinIndex + 4] = leg.curve.tx; joins[joinIndex + 5] = leg.curve.ty;
+                    joins[joinIndex + 6] = leg.curve.ex; joins[joinIndex + 7] = leg.curve.ey;
+                }
+                joinIndex += 8;
             }
             origin = path.origin; confirmed = path.confirmed;
             npcMin = path.npcMin; npcMax = path.npcMax; npcArrivalGoal = path.npcArrivalGoal();
@@ -1934,7 +2230,8 @@ final class MovementPath
             flags = (path.speculative ? 1 : 0) | (path.recovering ? 2 : 0) | (path.replacement ? 4 : 0) |
                 (path.agreement ? 8 : 0) | (path.awaitingOrigin ? 16 : 0) | (path.reversalPreview ? 32 : 0) |
                 (path.invalid ? 64 : 0) | (path.easingNpcStart ? 128 : 0) | (path.running ? 256 : 0) | (path.npcRetarget ? 512 : 0) |
-                (path.combatTracking ? 1024 : 0) | (path.combatCredit ? 2048 : 0) | (path.combatTrailing ? 4096 : 0);
+                (path.combatTracking ? 1024 : 0) | (path.combatCredit ? 2048 : 0) | (path.combatTrailing ? 4096 : 0) |
+                (path.walkContinuity ? 8192 : 0);
             confirmedClickIndex = path.confirmedClickIndex; confirmedPreviewIndex = path.confirmedPreviewIndex;
             reserve = path.npcReserveTiles; deadline = path.deadline; chainDeadline = path.chainDeadline; speed = path.multiplier;
         }
@@ -1942,6 +2239,7 @@ final class MovementPath
         boolean same(TraceSnapshot other)
         {
             return other != null && route.equals(other.route) && preview.equals(other.preview) && Arrays.equals(queue, other.queue) &&
+                Arrays.equals(joins, other.joins) &&
                 origin.equals(other.origin) && confirmed.equals(other.confirmed) && java.util.Objects.equals(npcMin, other.npcMin) &&
                 java.util.Objects.equals(npcMax, other.npcMax) && java.util.Objects.equals(npcArrivalGoal, other.npcArrivalGoal) &&
                 java.util.Objects.equals(counterNativeGoal, other.counterNativeGoal) &&
@@ -1959,7 +2257,8 @@ final class MovementPath
                 " counterBoundaryGoal=" + point(counterBoundaryGoal) +
                 " deadlineUs=" + (deadline - started) / 1000 +
                 " chainDeadlineUs=" + (chainDeadline - started) / 1000 + " effectiveSpeed=" + speed +
-                " logical=" + points(route) + " preview=" + points(preview) + " legs=" + Arrays.toString(queue).replace(" ", "");
+                " logical=" + points(route) + " preview=" + points(preview) + " legs=" + Arrays.toString(queue).replace(" ", "") +
+                " joins=" + Arrays.toString(joins).replace(" ", "");
         }
 
         private static String point(LocalPoint p) { return p == null ? "-" : p.getX() + "," + p.getY(); }
@@ -1982,6 +2281,8 @@ final class MovementPath
             leg.firstOfPair, leg.corridorEnd == null ? null : shifted(leg.corridorEnd, dx, dy));
         result.headingX = leg.headingX;
         result.headingY = leg.headingY;
+        result.joinPrepared = leg.joinPrepared;
+        result.curve = leg.curve == null ? null : leg.curve.shifted(dx, dy);
         return result;
     }
 

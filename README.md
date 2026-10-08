@@ -61,6 +61,9 @@ movement situations,
 but do not establish every interaction or renderer combination. See
 [validation notes](docs/VALIDATION.md) for confirmation scope and useful regression
 checks, including gates, region crossings, minimap input, and interaction approaches.
+The user reports substantially smoother circles and improved repeated knights.
+The newest marked-pause handoff follow-up passes regressions and awaits in-game
+confirmation; see the current validation status above those checks.
 
 ## Development
 

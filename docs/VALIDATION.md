@@ -16,6 +16,143 @@ Movement** plugin must be disabled; the new plugin declares that conflict.
 
 ## Current status (supersedes dated pending notes below)
 
+**2026-10-08 23:33 marked knight handoffs: implemented; 598 tests pass; awaiting in-game confirmation.**
+The user reports **"the running in circles is a lot better now"** and that most knight
+back-and-forths work really well, then supplies session `1791462766789`,
+**23:32:46.789–23:33:47.462 (+11:00)**. It contains 81 Walk clicks and five substantial
+post-movement pauses at **23:32:59.062 / 23:33:05.002 / 11.644 / 19.964 / 44.480**.
+The two-second neighborhoods around every pause were reviewed. Exact right-button
+presses are not recorded; pauses are markers, not reconstructed menu events.
+Settings are **speed 5.4 / turn 30 / smoothing 0 / Original player when aligned off**.
+
+Near **23:32:58.483**, **23:33:18.903** and **23:33:43.420**, late authority still names
+the preceding endpoint, so the old knight handoff can choose an intermediate staging
+corner. A fresh click now also considers the nearby occupied leg's forward endpoint
+as a checked whole-knight construction origin, retaining the same authority-gap and
+reversible recovery proof. It does not prefer a backstep through the leg's old start.
+
+At **23:33:10.600–10.701**, authority alignment briefly sends display back toward the
+old origin before continuing. Where the old and new proven convex corridors share a
+valid crossing, the visual join now passes straight through it instead. Both queue
+subsegments retain their own collision proof, and the shared endpoint can be sub-tile.
+Unavailable overlap/blocked alternatives keep checked alignment or corners.
+
+The **23:33:03.362** visible-idle return click also inherits confirmation because its
+new goal already equals the old true tile; the delayed **03.403** endpoint then adds a
+return chord. `pendingWalkConfirmation` now shares the already-true-goal rule between
+moving replacements and fresh idle scene/minimap Walk starts. It grants no extra time
+or movement credit, and normal matching authority/timeout/recovery remain decisive.
+
+Eight new tests cover all 81 observed clicks at **8.333/20/33.333-ms** cadences, holding
+each marked stop, no retrace in the late-origin window, pending idle returns, full-chord
+construction, scene/minimap parity, blocked alternatives, closing incoming collision,
+rotated/reflected geometry and rebasing. The three initial focused checks fail before
+the correction and pass after it. The full
+`.\gradlew.bat build --offline --console=plain --no-daemon` passes **598 tests**, zero
+failures/ignored tests, retaining all 590 prior checks. Click-time collision crops agree
+across all 81 clicks; native fractions are held between retained publications, unknown
+cells are blocked, and native rendering/menu presses are not executed. See
+[the checkpoint](agent-work/marked-knights-2333/CHECKPOINT.md).
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Repeat the marked sequence at the recorded settings: alternate both knights near
+arrivals, stop on odd movement and mark it with right clicks. Check no tiny rollback,
+smooth straight chord travel, and holding the latest tile. Include idle return clicks,
+minimap, walking, walls, scene transitions and existing interactions/combat/Follow.
+Only the user establishes visual feel. Record a trace and report any remaining local
+timestamp with UTC offset; this newest correction awaits its own confirmation.
+
+**2026-10-08 22:29/22:37 repeated knight and marked-circle follow-up: user-confirmed improved, with remaining cases reported; 590 tests passed at that checkpoint.**
+The user subsequently reports circles are **"a lot better"** and that most knight
+back-and-forths work **"really well"**. This supersedes the blanket pending status;
+the separate remaining handoff/idle-start cases are addressed by the newer entry above.
+The user reports the preceding circle-continuity change **"seems to be working well"**,
+then supplies two newer sessions. The second newest is `1791458898008`, **22:28:18.008–
+22:29:58.956 (+11:00)**, with circles, marked pauses and repeated knights at its end.
+The newest is `1791459413609`, **22:36:53.609–22:37:23.975**, with repeated reciprocal
+and alternating knights. Both use speed **5.4**, Turning speed **30**, smoothing **0**
+and Original player when aligned **off**. Right-button menu-opening presses are not
+recorded as clicks; their exact timing is not reconstructed.
+
+At **22:29:53.416**, **22:37:06.657** and **22:37:19.876**, late preceding-click
+endpoints are appended behind fresh reversals, producing the extra displayed return
+trip. The stale-endpoint guard had required collinearity with the first logical step;
+a knight's endpoint lies off that cardinal line. It now uses the whole latest route's
+direction, preserving the checked forecast and original bounds through opposite stale
+progress. Real authority still updates; checked forward logical/construction-origin
+progress confirms normally, including necessary detours away from the geometric goal.
+
+Eligible fresh knight clicks now retain the complete authority-anchored, both-order
+checked chord when its proven corridor contains the display. A fraction outside it
+may finish only a proven connector within a quarter tile of authority, then traverse
+that same chord. This removes the captured cardinal/diagonal staging split and its
+uneven-looking pacing. Curve facing also follows a monotonic blend between its intended
+incoming/terminal headings, avoiding overshoot-and-correction sweeps; the true spatial
+derivative remains available for continuity. Facing stays under its single turn cap.
+
+Eleven new tests cover both knight timelines and a marked circle segment at
+8.333/20/33.333-ms cadences, no extra return debt, general knight reversal directions,
+whole-chord handoffs, monotonic curve-facing, timeout/recovery, matching authority,
+rebase/collision, run/both-order guards and genuine detour confirmation. The initial
+four positional checks and the curve-facing guard fail before their corrections.
+Native fractions are held between retained events and model/facing state uses API
+doubles. The collision crops agree across all 226/27 recorded clicks; unknown space
+is blocked. These replays do not execute the native renderer or prove every click pattern.
+The full `.\gradlew.bat build --offline --console=plain --no-daemon` passes **590 tests**,
+zero failures/ignored tests, retaining all 579 prior checks. See
+[the checkpoint](agent-work/repeated-knights-2237/CHECKPOINT.md).
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Repeat the marked circles/pauses and reciprocal/alternating knights at the recorded
+settings. Stop after the final click: check direct arrival at the latest target without
+an extra out/back, steady complete knight travel and no unnecessary left/right sweep.
+Include other reversals, walking, walls, scene/minimap, interactions, combat and Follow.
+Only the user confirms visual feel. Record a trace and report any remaining timestamp
+with UTC offset. The user subsequently confirms improvement for the tested situations;
+the remaining marked-pause cases and their latest correction are described above.
+
+**2026-10-08 21:43 spam-click circle continuity: user-confirmed working well for the tested situations; 579 tests passed at that checkpoint.**
+The user subsequently reports **"that change seems to be working well"**. This supersedes
+the initial pending runtime status; the separate follow-up above addresses the newer cases.
+The capture at that checkpoint is session `1791456214521`, **21:43:34.521–21:43:55.575
+(+11:00)**. It contains 48 scene Walk clicks, speed **5.4**, Turning speed **25** and
+Walk-click smoothing **0**. Several fractional joins/short connectors change travel
+direction abruptly (nine sampled heading changes above 35 degrees, including about
+72 degrees). The inspected sequence has no large per-sample positional budget outlier;
+the trace does not record the final native renderer's bones or camera perception.
+
+Fresh Walk candidate selection now favours a checked forward tangent within the
+existing one-tile travel allowance. Eligible fractional Walk joins can use a short
+cubic blend wholly inside an already proven reversible knight/diagonal corridor.
+Both controls and the blend endpoint stay inside its convex region and forecast gap;
+the curve spends exact max-axis arc length from MovementPath's existing frame budget,
+then rejoins the same leg. Logical routes, authority, deadlines and checked recovery
+remain in that pipeline. Reversals/unavailable geometry retain their checked connectors.
+MovementFacing also eases the last few degrees under the existing turn cap.
+
+Seven new checks cover the full click/authority/publication sequence at
+8.333/20/33.333-ms cadences, aggregate travel continuity, fractional curve bounds,
+repeated clicks, cadence-independent curve pacing, active-curve scene translation,
+collision rejection/recovery and facing settlement. At the 20-ms replay grid, the sum
+of squared frame-to-frame velocity changes falls from **6.0925 to 4.83** (about 21%).
+That is an aggregate replay measure, not a claim that every turn or largest reversal
+is improved. The capture check fails with the continuity correction disabled and passes
+with it enabled. Native fractions are held between retained authority/destination
+events; unknown collision cells are blocked. The replay does not execute RuneScape.
+The full `.\gradlew.bat build --offline --console=plain --no-daemon` passes **579 tests**,
+zero failures/ignored tests. See [the checkpoint](agent-work/circle-2143/CHECKPOINT.md).
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Repeat the circle first at speed 5.4, turn 25, smoothing 0, then try smaller circles,
+sharp reversals, scene/minimap replacement clicks, walls and final arrivals. Recheck
+ordinary object/NPC approaches, combat, Follow and region crossings. Record a trace,
+stop recording to flush, and report the local time/UTC offset of any remaining kick.
+Only the user confirms in-game visual feel. This circle follow-up is now user-confirmed
+for the tested situations; its newer repeated-knight/facing refinement above remains pending.
+
 **2026-10-08 19:49 refinement continuity and tick-aware smoothing: user-confirmed working well for the tested situations; 572 tests pass.**
 The user subsequently reports **"that change worked well"** for the stop/start
 correction and tick-aware 0–300-ms smoothing follow-up. This supersedes their pending
