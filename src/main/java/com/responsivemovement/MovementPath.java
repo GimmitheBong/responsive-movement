@@ -934,23 +934,48 @@ final class MovementPath
     /** Scene/NPC refinements share the authority-anchored join, not a backward startup connector. */
     MovementPath retargetApproachDestination(LocalPoint destination, boolean run, long now)
     {
+        return retargetApproachDestination(destination, run, now, false);
+    }
+
+    MovementPath retargetApproachDestination(LocalPoint destination, boolean run, long now, boolean approach)
+    {
+        if (speculative && (now >= deadline || now >= chainDeadline)) { return null; }
         if (!invalid && !recovering && speculative && !replacement && agreement &&
-            !hasUnfinishedConfirmedPrefix() && !legs.isEmpty())
+            !legs.isEmpty())
         {
             // A native refinement is the same interaction, not a fresh click.
             // Rebuild from authority and join the occupied checked edge/corridor;
             // never choose a backward construction-anchor detour for a shorter
             // capped forecast. Keep both original deadlines and the NPC policy.
             MovementPath forecast = anticipate(confirmed, confirmed, destination, run, now, multiplier,
-                Math.min(deadline, chainDeadline), collision, false, npcMin, npcMax, npcReserveTiles);
+                Math.min(deadline, chainDeadline), collision, approach, npcMin, npcMax, npcReserveTiles);
             if (forecast != null)
             {
+                forecast.deadline = Math.min(deadline, chainDeadline);
                 forecast.chainDeadline = chainDeadline;
+                if (hasUnfinishedConfirmedPrefix())
+                {
+                    // The native endpoint can refine while the display still owes
+                    // checked confirmed travel. Preserve that prefix and fraction,
+                    // queue only the replacement forecast, and reuse both deadlines.
+                    // A blocked/unavailable forecast still takes ordinary recovery.
+                    if (legs.size() + forecast.legs.size() > MAX_QUEUE) { return null; }
+                    replacement(true);
+                    return queuePrediction(forecast) ? this : null;
+                }
                 MovementPath joined = joinForecast(forecast, destination.getX() - confirmed.getX(), destination.getY() - confirmed.getY());
                 if (joined != null) { return joined; }
             }
         }
-        return retargetNativeApproach(destination, run, now);
+        MovementPath fallback = retargetNativeApproach(destination, run, now);
+        if (fallback != null)
+        {
+            // The checked occupied-edge fallback is also a refinement, not
+            // replacement input. It cannot renew either prediction horizon.
+            fallback.deadline = Math.min(fallback.deadline, deadline);
+            fallback.chainDeadline = Math.min(fallback.chainDeadline, chainDeadline);
+        }
+        return fallback;
     }
 
     /** A revised native interaction tile may finish the already occupied checked knight chord. */

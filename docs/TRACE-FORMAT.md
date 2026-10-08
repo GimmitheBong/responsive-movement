@@ -20,6 +20,7 @@ managed folder does not already exist. This does not change the trace schema.
   native destination at observation, world/view/base/plane, instancing, player
   world/native/display positions and footprint, run/energy/Ctrl state, movement
   settings, and the clicked NPC's definition ID, index, name and world footprint.
+  New click contexts include `faceInteractionsOnArrival`; older captures omit it.
   No NPC/scene enumeration is used. Walk contexts without a menu event have no
   menu parameters; the native published destination remains their target evidence.
 - `[RESPONSIVE-MOVEMENT-COLLISION]`: copied collision columns for that click.

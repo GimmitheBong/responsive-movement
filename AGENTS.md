@@ -1,6 +1,6 @@
 # Responsive Movement development
 
-- Author/owner: GimmitheBong. Preserve the BSD attribution for derived code.
+- Author/owner: PHYSIQUE-sys (formerly GimmitheBong). Preserve the BSD attribution for derived code.
 - Java 11, supported RuneLite APIs only. No reflection, injected input, native
   memory access, external processes, runtime-generated/downloaded code, or
   changes to the player's server-visible route.

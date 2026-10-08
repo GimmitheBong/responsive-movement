@@ -5,7 +5,7 @@ Use the [user README](../README.md) for setup and current settings, and
 [VALIDATION.md](VALIDATION.md) for the latest confirmations. Dated build counts and
 dependency pins below describe their historical checkpoints.
 
-A standalone Java 11 RuneLite plugin by **GimmitheBong**. It makes the **local
+A standalone Java 11 RuneLite plugin by **PHYSIQUE-sys (formerly GimmitheBong)**. It makes the **local
 player's displayed movement** respond to observed clicks while keeping the
 server-visible route and native game actions authoritative. One `MovementPath`
 handles anticipated starts, confirmed walking/running, interaction approaches,

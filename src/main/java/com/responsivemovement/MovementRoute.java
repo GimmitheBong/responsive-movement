@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import net.runelite.api.Perspective;
 import net.runelite.api.coords.LocalPoint;
 
@@ -31,7 +32,29 @@ final class MovementRoute
         int tile = Perspective.LOCAL_TILE_SIZE;
         if (!MovementPath.sameView(from, to) || !MovementPath.tileCenter(from) || !MovementPath.tileCenter(to) ||
             maxSteps < 0 || MovementPath.distance(from, to) > maxSteps * tile) { return null; }
-        if (reached(from, to, approach)) { return Collections.emptyList(); }
+        return search(from, maxSteps, collision, point -> reached(point, to, approach));
+    }
+
+    /** First reachable cardinal perimeter tile, using the same bounded reversible search. */
+    static List<LocalPoint> boundary(LocalPoint from, LocalPoint min, LocalPoint max, int maxSteps,
+        BiPredicate<LocalPoint, LocalPoint> collision)
+    {
+        if (!MovementPath.sameView(from, min) || !MovementPath.sameView(min, max) ||
+            !MovementPath.tileCenter(from) || !MovementPath.tileCenter(min) || !MovementPath.tileCenter(max) ||
+            min.getX() > max.getX() || min.getY() > max.getY() || maxSteps < 0) { return null; }
+        return search(from, maxSteps, collision, point ->
+        {
+            int dx = Math.max(0, Math.max(min.getX() - point.getX(), point.getX() - max.getX()));
+            int dy = Math.max(0, Math.max(min.getY() - point.getY(), point.getY() - max.getY()));
+            return dx + dy == Perspective.LOCAL_TILE_SIZE;
+        });
+    }
+
+    private static List<LocalPoint> search(LocalPoint from, int maxSteps,
+        BiPredicate<LocalPoint, LocalPoint> collision, Predicate<LocalPoint> reached)
+    {
+        int tile = Perspective.LOCAL_TILE_SIZE;
+        if (reached.test(from)) { return Collections.emptyList(); }
         Map<LocalPoint, LocalPoint> parent = new HashMap<>();
         ArrayDeque<LocalPoint> queue = new ArrayDeque<>();
         parent.put(from, from);
@@ -48,7 +71,7 @@ final class MovementRoute
                         current.getY() + direction[1] * tile, from.getWorldView());
                     if (parent.containsKey(next) || !collision.test(current, next) || !collision.test(next, current)) { continue; }
                     parent.put(next, current);
-                    if (reached(next, to, approach))
+                    if (reached.test(next))
                     {
                         List<LocalPoint> route = new ArrayList<>();
                         for (LocalPoint point = next; !point.equals(from); point = parent.get(point)) { route.add(point); }

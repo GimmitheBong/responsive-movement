@@ -1,6 +1,6 @@
 # Responsive Movement architecture
 
-Author/owner: **GimmitheBong**. This is an independent Java 11 RuneLite project
+Author/owner: **PHYSIQUE-sys (formerly GimmitheBong)**. This is an independent Java 11 RuneLite project
 with config group `responsive-movement` and package `com.responsivemovement`.
 See the root BSD license for retained source attribution.
 
@@ -80,7 +80,12 @@ The retained rules include:
 - Ordinary object options and item/widget target-on-object actions share a
   click-time `ObjectApproach` footprint lookup. For a matched solid multi-tile
   rectangular game object, a published destination inside its footprint uses
-  the nearest perimeter staging point instead of the object's anchor tile.
+  a reachable cardinal perimeter staging point instead of the object's anchor tile.
+  The 2026-10-08 01:32 follow-up chooses that point with the shared bounded,
+  reversible MovementRoute search, rather than raw coordinate distance: the
+  geometrically nearer side can require a detour past an equally early boundary.
+  Cardinal-first search tie ordering is retained. This is destination construction
+  for an observed click/refinement, not a per-frame scene scan or a second route clock.
   Already being there suppresses an unnecessary preview; any onward movement
   still needs native evidence. The staging point does not establish interaction
   reach or permitted sides. Distant routes still use MovementPath collision
@@ -119,6 +124,17 @@ The retained rules include:
   still-forward confirmed point only inside the rechecked proven corridor. It keeps
   fractional position and all real confirmed debt. Blocked joins and unsupported
   authority retain recovery; an unfinished confirmed prefix is not discarded.
+- The 2026-10-08 19:49 object capture shows an anchor flag returning while that
+  confirmed prefix is unfinished. `retargetApproachDestination` now queues its
+  checked authority-anchored replacement behind the preserved prefix instead of
+  cancelling the whole speculative tail and waiting at authority. It retains the
+  exact fraction, single clock, original response/chain deadlines, NPC reserve and
+  queue bounds. Native object-style refinements use their existing adjacent-search
+  policy for blocked anchors; ordinary ground items still require the exact native
+  destination. Failed/expired forecasts and changed collision retain checked recovery.
+  The captured repeated-click ending passes at three cadences, alongside prefix,
+  knight, exact-goal, timeout, NPC and rebase guards. The user subsequently reports
+  this correction and the tick-aware smoothing follow-up worked well for the tested situations.
 - Ordinary ground-item identity also classifies its native destination as **exact**
   for route search. `MovementController.adjacentApproach` excludes those options
   from the generic object-style adjacent search at idle starts, moving handoffs and
@@ -496,6 +512,24 @@ and finish turning after positional movement ends. Once native facing takes
 over, a later idle click holds the current displayed angle rather than resuming
 an old route's heading. Fractional orientation is retained across updates.
 
+The optional Movement setting **Face interactions on arrival** (`faceInteractionsOnArrival`,
+default off) captures `InteractionFacing` evidence for non-combat NPC options and
+object options/item-widget targeting. It retains the clicked NPC's existing checked
+identity/footprint or immutable object bounds (clicked tile when no footprint is available).
+Once the displayed path stops at the nearby interaction boundary, it selects that
+target on the same arrival frame under MovementFacing's single capped turn budget.
+It can outlive native destination withdrawal and the arrival action, so native
+catch-up need not finish first. Distant exhausted forecasts and recovery are not
+arrivals. A later checked approach leg restores travel facing. Matching native/displayed
+facing releases the short-lived owner; idle pending evidence and arrival ownership
+are each bounded to 1.8 seconds. Walk/replacement input, toggle-off, target invalidation,
+native-location actions, scenes and cleanup retire it. Combat and explicit Follow
+retain their existing owners. No positional queue, animation/model handling or
+server-facing actor orientation is changed. Eight new controller regressions and
+the full **556-test** build pass; the user subsequently reports this option is
+working well for the tested situations. The newer refinement/smoothing build passes
+**572 tests** and is also user-confirmed working well for the tested situations.
+
 `MovementController` observes the local player, coordinates input and scene
 changes, and advances one `MovementPath`. `PlayerPresentation` caches/restores the
 native pose selectors and uses the native model builder for idle, walk, run,
@@ -569,7 +603,7 @@ destination observation still requires a new publication; the ordinary NPC
 fallback described above is separate, explicit provisional target evidence.
 
 Scene Walk clicks (including right-click Walk here) and minimap presses share the
-`clickSmoothingMs` settling window, default 50 ms and clamped to 0–60 ms. Its UI
+`clickSmoothingMs` settling window, default 50 ms and clamped to 0–300 ms. Its UI
 label is now **Walk-click smoothing (ms)**; the persisted key/group are retained. Input
 observation starts immediately; previews are released after the window measured
 from native click observation, not after an additional wait following destination publication.
@@ -584,6 +618,30 @@ existing input timing. Both yellow click sources use the same eligibility,
 replacement, collision, pacing, facing, prediction and authority-alignment rules.
 Actual visible response also depends on destination availability and render
 cadence, so the configured value is not a guaranteed end-to-end latency.
+
+For nonzero smoothing, the first `GameTick` after that click ends its wait early:
+release uses the earlier of the configured timer and that tick. `MovementController.gameTick`
+observes the native publication before `MovementInput.gameTick` marks the release.
+An already latched destination cannot be overwritten by an older server flag.
+The tick grants no destination, positional advance or prediction reserve; the next
+normal render preparation performs the same checks and spends the single frame budget.
+A later click clears the previous tick-release flag, and scene/plane/lifecycle
+invalidation or expiry cannot revive it. The 100-ms native observation and 900-ms
+pending-input limits remain, including when smoothing exceeds 100 ms: a destination
+must first have been observed within its normal evidence window.
+
+An eligible explicit Walk also retains `walkInput` ownership across a delayed
+non-location action from the preceding interaction. That action cannot clear its
+observation/smoothing or retire agreement on an already checked forecast. Facing
+continues under the same capped budget; native primary animation/frame handling is
+unchanged. This flag has no positions or prediction budget: native destination
+observation and MovementPath's existing bounds still control motion. Replacement
+world input, native-location actions, scenes, renderer/lifecycle cleanup, disabled
+starts and settled native/displayed arrival clear it. Unrelated effects retain
+their gate; combat's existing bounded effect carry remains separate. A fresh Walk
+during an already active ordinary action is still ineligible unless existing
+Walk/combat ownership supplies evidence. The 01:32 replay and guards pass; in-game
+confirmation is pending. See `agent-work/early-0132/CHECKPOINT.md`.
 
 ## Overheads, callbacks, and diagnostics
 

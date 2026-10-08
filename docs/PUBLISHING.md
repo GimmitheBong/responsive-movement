@@ -166,3 +166,12 @@ The initial preparation created no commit, push, release, Plugin Hub marker, or
 pull request. The user has now authorized recording validation, creating a public
 source repository, and committing/pushing the prepared project. Plugin Hub submission
 was subsequently opened as [Plugin Hub PR #17858](https://github.com/runelite/plugin-hub/pull/17858).
+
+Checked on **2026-10-08**: that initial PR was **merged on 2026-10-07**. The public
+source repository is [PHYSIQUE-sys/responsive-movement](https://github.com/PHYSIQUE-sys/responsive-movement).
+Future updates can be committed/pushed there as development checkpoints, then submitted
+in a new Plugin Hub PR that updates the existing plugin marker to the desired full
+commit hash. Pushing source alone does not update the Hub's selected plugin version.
+Batching a few tested follow-ups into one Hub update is appropriate; source checkpoints
+can be backed up independently while development continues. Commit/push/submission
+still require the user's explicit instruction.

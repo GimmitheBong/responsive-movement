@@ -15,6 +15,7 @@ final class MovementInput
     private long settleNanos;
     private boolean ready;
     private boolean observedDestination;
+    private boolean tickReleased;
 
     void click(LocalPoint previous, long now, int generation, int level)
     {
@@ -34,7 +35,8 @@ final class MovementInput
         replacementObserved = false;
         ready = false;
         observedDestination = false;
-        settleNanos = Math.max(0, Math.min(60, smoothingMillis)) * 1_000_000L;
+        tickReleased = false;
+        settleNanos = Math.max(0, Math.min(300, smoothingMillis)) * 1_000_000L;
     }
 
     LocalPoint destination(LocalPoint current, long now, int generation, int level)
@@ -61,7 +63,7 @@ final class MovementInput
         // republish the preceding click's destination during the settling window.
         // Only another click rearms observation; a carried same-target pending
         // walk above can still be replaced by that new click's own publication.
-        ready = destination != null && now - clicked >= settleNanos;
+        ready = destination != null && (tickReleased || now - clicked >= settleNanos);
         if (ready) { observedDestination = true; }
         return ready ? destination : null;
     }
@@ -74,7 +76,18 @@ final class MovementInput
         return true;
     }
 
-    void clear() { pending = ready = observedDestination = false; beforeDestination = destination = null; replacementObserved = false; }
+    /** The first game tick after a smoothed click ends only its wait, never supplies a destination. */
+    void gameTick(long now, int generation, int level)
+    {
+        if (!pending) { return; }
+        if (generation != scene || level != plane || now - clicked > (destination == null ? 100_000_000L : 900_000_000L))
+        {
+            clear(); return;
+        }
+        if (settleNanos > 0 && now >= clicked) { tickReleased = true; }
+    }
+
+    void clear() { pending = ready = observedDestination = tickReleased = false; beforeDestination = destination = null; replacementObserved = false; }
     boolean pending() { return pending; }
     boolean settling() { return pending && destination != null && !ready; }
     /** Observation start time of the current click. */

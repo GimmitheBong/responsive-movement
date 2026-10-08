@@ -16,6 +16,115 @@ Movement** plugin must be disabled; the new plugin declares that conflict.
 
 ## Current status (supersedes dated pending notes below)
 
+**2026-10-08 19:49 refinement continuity and tick-aware smoothing: user-confirmed working well for the tested situations; 572 tests pass.**
+The user subsequently reports **"that change worked well"** for the stop/start
+correction and tick-aware 0–300-ms smoothing follow-up. This supersedes their pending
+runtime status. The preceding arrival-facing option is also user-confirmed working
+well. These reports confirm the tested behavior; broader scenario checks below remain
+useful regressions.
+The latest session (`1791449319927`, ending **19:49:07.962 +11:00**) contains repeated
+Use on the same object. At **19:49:00.825**, the native anchor `(8384,4544)` refines to
+the actual approach `(8384,4416)` as authority advances to `(9024,4416)`. A repeated
+click at **00.841** republishes the blocked anchor while the displayed position still
+owes confirmed movement. The old refinement connector cannot replace that prefix,
+so it cancels the speculative tail. Display stops at `(9024,4416)` from **01.041**
+until **01.442**, then resumes on the next server endpoint; shorter run/idle gaps follow.
+There is no primary action or effect in those frames.
+
+Native approach refinements now queue a collision-checked replacement forecast behind
+unfinished confirmed debt, preserving its fraction, geometry and the original response/
+chain deadlines. Object-style blocked anchors retain adjacent search; ordinary ground
+items retain exact-goal search, and NPC footprints/reserves remain scoped. Unsupported
+connectors, timeout and collision changes still reconcile through the existing pipeline.
+The captured ending and prefix test both fail before the correction and pass after it;
+the ending runs at 8.333/20/33.333-ms cadences. Five additional guards cover knights,
+exact-vs-adjacent goals, repeated refinement expiry, expired fallback rejection and
+NPC/rebase continuity. The occupied-edge fallback also retains both original deadlines.
+
+**Walk-click smoothing (ms)** now ranges from **0–300**, default **50**. For a nonzero
+setting, the next game tick ends the wait early; otherwise the timer releases it.
+The description explicitly states this. Scene and minimap share that rule, with normal
+native destination evidence, first-publication latching, input gates, deadlines and
+one render-frame movement budget. Zero and red-click timing retain their existing
+handling. Five new input tests and four controller checks cover timer/tick ordering,
+walking/running parity, native authority, stale flags, replacement, expiry and gates.
+
+`.\gradlew.bat build --offline --console=plain --no-daemon` passes **572 tests**, zero
+failures/ignored tests, including all 556 previous checks. The capture replay retains
+actual click/destination/authority timing and collision columns X=63..74/Y=30..40;
+unknown space is blocked and native fractions are held between retained samples.
+It does not execute the native renderer or establish every object's interaction reach.
+See [the checkpoint](agent-work/object-refinement-1949/CHECKPOINT.md).
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Repeat the final object Use approach and repeated clicks at speed 6.0, smoothing 60,
+arrival-facing on, and Original player when aligned on. Check no intermediate stop/run
+pulse or retrace. Include other object/NPC approaches, exact pickups, doors and combat.
+Then test smoothing 0/50/150/300 with scene/minimap clicks just before a tick: a tick
+should release a nonzero wait early, with no snap or duplicate movement. Only the user
+performs gameplay; record a trace and report local time/UTC offset for any remaining case.
+
+**2026-10-08 interaction arrival-facing option: user-confirmed working well for the tested situations.**
+The user reports **"thats working well"** before requesting the separate stop/start
+and smoothing follow-up above. This supersedes the option's earlier pending status.
+Movement → **Face interactions on arrival** is off by default. Its description is
+"Instantly turn to NPCs/objects the moment you arrive at them". When enabled, turning
+begins on the displayed arrival frame using the existing Turning speed cap, before
+the native player/tick finishes catching up. Click-scoped NPC/immutable object evidence
+survives destination withdrawal and ordinary arrival actions, without owning a route
+or changing native actions/frames. Distant forecast exhaustion and recovery do not
+qualify; input, target, scene, toggle and lifecycle invalidation release ownership.
+Ground-item, combat and explicit Follow policies retain their existing behavior.
+
+Eight new API-double controller checks cover 8/20/33-ms arrival cadence, single-turn
+budgets, option-off parity, single-/multi-tile objects, late actions/flag withdrawal,
+native handoff, Walk cancellation, invalidation/cleanup and distant forecast recovery.
+The full `.\gradlew.bat build --offline --console=plain --no-daemon` passes
+**556 tests**, zero failures/ignored tests. These checks use synthetic target/native
+timing; they do not replay the reported evening logs or execute the game renderer.
+The user's arrival-facing confirmation is now part of the runtime baseline; the newer
+refinement/smoothing changes above are also user-confirmed working well.
+
+User check: launch `.\gradlew.bat run` using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Enable the option and approach offset NPCs, trees, single-tile objects and doors/gates;
+check the turn starts at visible arrival and blends smoothly from travel into facing.
+Try walking/running, different Turning speed values, late native action starts,
+repeated clicks and Walk/minimap cancellation. Compare option off and recheck combat,
+Follow, region crossings and plugin disable/re-enable. Only the user performs gameplay;
+record a trace and report local time/UTC offset for any remaining issue.
+
+**2026-10-08 01:32 route/action continuity: implemented; 548 tests pass; awaiting in-game confirmation.**
+The latest trace (`1791383551670`, 01:32:31.670–01:33:37.056 +11:00) shows
+solid-object previews choosing a geometrically near side that requires an unnecessary
+southern leg, then reversing when the exact native approach arrives. Rectangular
+object staging now selects a reachable cardinal perimeter using the existing bounded,
+reversible MovementRoute search. Native destinations outside the footprint remain exact;
+this does not establish permitted interaction sides or universal interaction reach.
+
+Walk click 1388 at 01:32:59.136 also starts correctly, but a delayed native action
+at 59.479 retires its route agreement. The forecast stops at `(6080,5952)` from
+01:33:00.274 to 01:33:01.280 despite matching forward authority. An eligible explicit
+Walk now retains input ownership through delayed non-location actions, including during
+destination observation/smoothing, without changing native primary actions or granting
+new prediction time. Missing/unchanged destination evidence, unrelated effects, native
+location actions, replacement world input, scenes, disabled starts and cleanup retain
+their gates. A newly clicked Walk during an existing non-combat action remains conservative.
+
+Both reported failure categories fail replay assertions before the fix and pass after it
+at 8.333/20/33.333-ms cadences. Twelve new replay/geometry/lifetime guards plus all 536
+earlier checks pass: **548 tests, zero failures/errors/skips**. The prior 117 HD user
+confirmation remains the runtime baseline; this correction needs its own user check.
+Launch `.\gradlew.bat run` using the
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts)
+guide. At speed 5.8 and smoothing 60 ms, repeat the northern/offset tree approaches and
+Walk away just before an action arrives; check no extra detour, reversal or intermediate
+run stop. Include minimap Walk, other rectangular objects and ordinary combat/door
+regressions. Record a short trace and report the local time/UTC offset of any remaining
+case. Only the user performs gameplay. See
+[the 01:32 checkpoint](agent-work/early-0132/CHECKPOINT.md) for evidence and test limits.
+
 **Filepath review follow-up: managed diagnostics implemented; 536 tests pass.**
 Startup now passes `getPluginDirectory()` to the asynchronous trace writer. All
 filesystem operations use the managed Filepath capability; the descriptor sets

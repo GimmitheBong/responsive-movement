@@ -49,9 +49,13 @@ public interface ResponsiveMovementConfig extends Config
     default boolean recordTrace() { return false; }
 
     @ConfigItem(keyName = "clickSmoothingMs", name = "Walk-click smoothing (ms)", position = 7,
-        description = "Wait 0–60 ms from an observed scene or minimap walk click before starting or redirecting its preview; 0 disables the wait. Native movement continues normally", section = MOVEMENT)
-    @Range(min = 0, max = 60)
+        description = "Wait up to 0–300 ms after a scene or minimap Walk click. When above 0, the next game tick ends the wait early. 0 disables the wait; native movement continues normally", section = MOVEMENT)
+    @Range(min = 0, max = 300)
     default int clickSmoothingMs() { return 50; }
+
+    @ConfigItem(keyName = "faceInteractionsOnArrival", name = "Face interactions on arrival", position = 8,
+        description = "Instantly turn to NPCs/objects the moment you arrive at them", section = MOVEMENT)
+    default boolean faceInteractionsOnArrival() { return false; }
 
     @ConfigItem(keyName = "adaptiveCamera", name = "Adaptive camera", position = 0,
         description = "Follow the visible player during rendering; native mode is used for menus and input", section = CAMERA)

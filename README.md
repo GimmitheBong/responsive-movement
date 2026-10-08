@@ -1,6 +1,6 @@
 # Responsive Movement
 
-A RuneLite plugin by **GimmitheBong** that smooths the **local player's displayed
+A RuneLite plugin by **PHYSIQUE-sys** that smooths the **local player's displayed
 movement** and reacts to observed scene and minimap clicks. Walking, running,
 turning, and interaction approaches use native player animations at the displayed
 position.
@@ -40,7 +40,8 @@ by this preparation work. Use the development instructions below to try it.
 | Responsive starts | On | Early visual previews from observed clicks. |
 | Movement speed multiplier | 5.0 | Displayed movement pace; 5.0 is normal, range 0.5–10.0. |
 | Turning speed | 30 | Maximum custom turning rate, scaled by frame time. |
-| Walk-click smoothing (ms) | 50 | Wait of 0–60 ms from click observation before releasing a Walk preview; 0 disables the wait. |
+| Walk-click smoothing (ms) | 50 | Wait up to 0–300 ms from click observation; the next game tick ends a nonzero wait early. 0 disables the wait. |
+| Face interactions on arrival | Off | Begin smoothly turning toward the clicked NPC/object as soon as displayed movement arrives, using Turning speed. |
 | Original player when aligned | On | Native rendering when stationary position, pose, and facing agree. |
 | Adaptive camera | On | Follow displayed movement during drawing; native camera mode is restored before input. |
 | Custom overhead rendering | On | Draw local-player overheads at the displayed position. |
@@ -110,5 +111,5 @@ decisions; nothing is uploaded automatically.
 
 BSD-2-Clause. Derived in part from the True Tile Movement Animations project by
 Jacob Richard Nelson / Posiedien, whose contributors include MK677 and JarateKing.
-The original copyright attribution and GimmitheBong's attribution are retained in
+The original copyright attribution and PHYSIQUE-sys's attribution (formerly GimmitheBong) are retained in
 [LICENSE](LICENSE), also bundled as `META-INF/LICENSE` in the plugin JAR.

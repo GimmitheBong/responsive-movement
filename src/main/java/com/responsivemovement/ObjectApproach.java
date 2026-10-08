@@ -1,5 +1,7 @@
 package com.responsivemovement;
 
+import java.util.List;
+import java.util.function.BiPredicate;
 import net.runelite.api.CollisionData;
 import net.runelite.api.CollisionDataFlag;
 import net.runelite.api.GameObject;
@@ -104,6 +106,18 @@ final class ObjectApproach
     }
 
     boolean wallBoundary() { return min.equals(max); }
+
+    LocalPoint goal(LocalPoint from, LocalPoint published, BiPredicate<LocalPoint, LocalPoint> collision)
+    {
+        if (!contains(published) || wallBoundary()) { return goal(from, published); }
+        if (!MovementPath.sameView(from, min) || !MovementPath.tileCenter(from) || contains(from)) { return null; }
+        // Coordinate distance can prefer a side whose checked route bends past
+        // an equally near, earlier perimeter. Use the shared cardinal-first
+        // search to choose a reachable boundary, without guessing interaction reach.
+        List<LocalPoint> route = MovementRoute.boundary(from, min, max, 64,
+            (a, b) -> !contains(a) && !contains(b) && collision.test(a, b));
+        return route == null ? null : route.isEmpty() ? from : route.get(route.size() - 1);
+    }
 
     LocalPoint goal(LocalPoint from, LocalPoint published)
     {

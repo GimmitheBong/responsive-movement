@@ -46,6 +46,7 @@ final class MovementController
     private boolean firstPresentationPending;
     private boolean pohArrival;
     private boolean yellowFacing;
+    private boolean walkInput;
     private boolean preserveFacing;
     private boolean facingSettled;
     private int nativeTarget;
@@ -59,6 +60,7 @@ final class MovementController
     private LocalPoint observedApproachDestination;
     private ObjectApproach objectApproach;
     private InteractionTarget interactionTarget;
+    private InteractionFacing interactionFacing;
     private NpcApproach npcApproach;
     private CombatContinuity combatContinuity;
     private FollowPresentation followPresentation;
@@ -95,6 +97,8 @@ final class MovementController
 
     void sceneChanged(boolean loading)
     {
+        interactionFacing = null;
+        walkInput = false;
         followPresentation = null;
         clearCombat();
         clearCombatWalk();
@@ -123,6 +127,19 @@ final class MovementController
         walkClick(client.getLocalDestinationLocation(), "WALK", config.clickSmoothingMs());
     }
 
+    void gameTick()
+    {
+        if (owner == null || owner.getWorldView() == null || interactionApproach || !input.pending()) { return; }
+        long now = clock.getAsLong();
+        // Copy the native publication before ending the wait. An older flag must
+        // not displace an already latched click, and a tick is not route evidence.
+        LocalPoint previousClickDestination = path != null && path.moving() && client.getGameCycle() > clickCycle
+            ? path.clickedDestination() : null;
+        input.destination(client.getLocalDestinationLocation(), now, generation, owner.getWorldView().getPlane(), previousClickDestination);
+        input.gameTick(now, generation, owner.getWorldView().getPlane());
+        // Movement still advances once, in BeforeRender, under its usual checks.
+    }
+
     void walkClick(LocalPoint previousDestination)
     {
         walkClick(previousDestination, "MINIMAP", config.clickSmoothingMs());
@@ -139,6 +156,8 @@ final class MovementController
 
     private void walkClick(LocalPoint previousDestination, String action, int smoothingMillis)
     {
+        if (interactionFacing != null) { facing.hold(); }
+        interactionFacing = null;
         followPresentation = null;
         long now = clock.getAsLong();
         boolean recentCombatInput = combatInput && now - combatInputNanos <= 1_800_000_000L;
@@ -171,6 +190,11 @@ final class MovementController
         interactionTarget = null;
         npcApproach = null; npcPreview = false;
         armClick(previousDestination, smoothingMillis);
+        // A successfully armed explicit Walk owns its input across a delayed
+        // non-location action from the preceding interaction. It supplies no
+        // route or renewed budget: destination observation and MovementPath's
+        // deadlines still decide whether any preview is available.
+        walkInput = input.pending();
         pohArrival = false;
         yellowFacing = true;
         if (!input.pending() && path != null) { path.replacement(true); }
@@ -193,6 +217,9 @@ final class MovementController
 
     void worldInteraction(MenuOptionClicked event)
     {
+        InteractionFacing previousInteractionFacing = interactionFacing;
+        interactionFacing = null;
+        walkInput = false;
         FollowPresentation previousFollow = followPresentation;
         followPresentation = FollowPresentation.capture(owner, event, clock.getAsLong());
         if (followPresentation != null && followPresentation.same(previousFollow)) { followPresentation = previousFollow; }
@@ -212,6 +239,7 @@ final class MovementController
         clickAction = event.getMenuAction().name(); clickTarget = event.getId();
         if (repeat)
         {
+            interactionFacing = previousInteractionFacing;
             // Same scene action/ID/tile/view selects the existing approach, just
             // like a same-destination Walk. Preserve observation, geometry and
             // deadlines: an unchanged flag is not a new prediction reserve.
@@ -243,6 +271,11 @@ final class MovementController
         objectApproach = ObjectApproach.capture(owner == null ? null : owner.getWorldView(), event);
         npcApproach = NpcApproach.capture(client, owner == null ? null : owner.getWorldView(), event,
             client.getLocalDestinationLocation());
+        if (config.faceInteractionsOnArrival())
+        {
+            interactionFacing = InteractionFacing.capture(owner == null ? null : owner.getWorldView(), event,
+                objectApproach, npcApproach, clock.getAsLong());
+        }
         npcPreview = false;
         approachGoal = null;
         armClick(client.getLocalDestinationLocation(), 0);
@@ -272,6 +305,8 @@ final class MovementController
         Player player = client.getLocalPlayer();
         if (client.getGameState() != GameState.LOGGED_IN || player == null || player.getWorldView() == null)
         {
+            interactionFacing = null;
+            walkInput = false;
             followPresentation = null;
             clearCombat();
             clearCombatWalk();
@@ -299,6 +334,8 @@ final class MovementController
         }
         if (scenePending || discontinuity || baseX != view.getBaseX() || baseY != view.getBaseY())
         {
+            interactionFacing = null;
+            walkInput = false;
             followPresentation = null;
             clearCombat();
             clearCombatWalk();
@@ -341,6 +378,8 @@ final class MovementController
 
         if (pohArrival || nativeLocationAction(player.getAnimation()))
         {
+            interactionFacing = null;
+            walkInput = false;
             followPresentation = null;
             clearCombat();
             clearCombatWalk();
@@ -396,6 +435,7 @@ final class MovementController
             }
         }
         path.speed(MovementPath.configuredSpeed(config.movementSpeed()));
+        if (walkInput && !input.pending() && path.finished() && nativePoint.equals(authoritative)) { walkInput = false; }
         boolean effect = presentation.hasSpotAnimation();
         boolean actionOrEffect = player.getAnimation() != -1 || effect;
         captureCombatEffects(now);
@@ -461,9 +501,11 @@ final class MovementController
         }
         if (!routeClear || !path.accept(authoritative, runEnabled()))
         {
+            interactionFacing = null;
             // Genuine discontinuities and unwalkable forced movement use the
             // native presentation until a supported local segment is available.
             path = null;
+            walkInput = false;
             clearCombat();
             clearCombatWalk();
             interactionTarget = null;
@@ -508,12 +550,14 @@ final class MovementController
         }
         if (!config.responsiveStarts())
         {
+            walkInput = false;
             clearCombat();
             clearCombatWalk();
             path.cancel(); input.clear(); observedApproachDestination = null;
             npcApproach = null; npcPreview = false;
         }
-        if (actionOrEffect && !followingCombat && !(combatWalk && walkEffectsAllowed && previewPoseAllowed()))
+        boolean ownedWalk = (combatWalk || walkInput) && walkEffectsAllowed && previewPoseAllowed();
+        if (actionOrEffect && !followingCombat && !ownedWalk)
         {
             interactionTarget = null;
             // An interaction has begun: discard any remaining approach preview
@@ -531,10 +575,10 @@ final class MovementController
         if (followingCombat && combatContinuity.allowed && combatContinuity.progressed) { offerCombat(now); }
         boolean combatHit = followingCombat && combatContinuity.takeHit(authoritative, now);
         if (combatHit && path.completeCombatHit(authoritative, runEnabled())) { startDecision = "settled-combat-hit"; }
-        if (player.getAnimation() != -1 && !combatWalk) { yellowFacing = preserveFacing = facingSettled = false; }
+        if (player.getAnimation() != -1 && !ownedWalk) { yellowFacing = preserveFacing = facingSettled = false; }
         tryStart(now, authoritative);
         LocalPoint destination = client.getLocalDestinationLocation();
-        boolean continuingRun = !interactionApproach && (!actionOrEffect || combatWalk && walkEffectsAllowed) && !input.pending() &&
+        boolean continuingRun = !interactionApproach && (!actionOrEffect || ownedWalk) && !input.pending() &&
             runEnabled() && MovementPath.sameView(destination, authoritative) && !destination.equals(authoritative) &&
             !nativePoint.equals(authoritative);
         path.advance(now, continuingRun);
@@ -542,13 +586,18 @@ final class MovementController
         if (followingCombat) { combatContinuity.arrived(path.position()); }
         LocalPoint combatFaceTarget = followingCombat && (!path.moving() || npcApproach.adjacentCombat() && combatContinuity.locked)
             ? npcApproach.facingPoint() : null;
-        if (combatFaceTarget != null)
+        if (!config.faceInteractionsOnArrival()) { interactionFacing = null; }
+        LocalPoint arrivalFaceTarget = interactionFacing == null ? null : interactionFacing.target(view, path,
+            input.pending(), now, player.getOrientation(), (int) facing.angle());
+        if (interactionFacing != null && interactionFacing.retired) { interactionFacing = null; }
+        LocalPoint faceTarget = combatFaceTarget != null ? combatFaceTarget : arrivalFaceTarget;
+        if (faceTarget != null)
         {
             LocalPoint at = path.position();
-            double dx = combatFaceTarget.getX() - at.getX(), dy = combatFaceTarget.getY() - at.getY();
+            double dx = faceTarget.getX() - at.getX(), dy = faceTarget.getY() - at.getY();
             if (dx != 0 || dy != 0) { facing.movement(dx, dy); }
         }
-        else if (travelled && (player.getAnimation() == -1 || followingCombat || combatWalk))
+        else if (travelled && (player.getAnimation() == -1 || followingCombat || ownedWalk))
         {
             facing.movement(path.turnX(), path.turnY());
         }
@@ -575,7 +624,7 @@ final class MovementController
         boolean nativeArrived = interactionFacingReady(nativePoint, authoritative, path.finished());
         // Select one target and spend one turn budget, including arrival frames.
         // A held arrival keeps easing to its travel heading after the path stops.
-        boolean followNative = !followingCombat && !combatWalk && (player.getAnimation() != -1 ||
+        boolean followNative = arrivalFaceTarget == null && !followingCombat && !ownedWalk && (player.getAnimation() != -1 ||
             !travelled && !posedMoving && !preserveFacing && (!interactionApproach || nativeArrived));
         facing.advance(player.getOrientation(), followNative, config.turnSpeed() * delta / 16.667);
         // A click made just before a confirmed corner can start in this same
@@ -583,7 +632,7 @@ final class MovementController
         tryStart(now, authoritative);
         visible = path.position();
         boolean held = preserveFacing && (!facingSettled || !visible.equals(nativePoint)) ||
-            interactionApproach && !nativeArrived || combatFaceTarget != null || combatWalk;
+            interactionApproach && !nativeArrived || faceTarget != null || combatWalk;
         boolean ready = presentation.prepare(visible, (int) facing.angle(), posedMoving,
             moving ? path.running() : gait.running(),
             config.originalWhenAligned(), held || !path.finished(), nativePoint.equals(authoritative));
@@ -803,7 +852,7 @@ final class MovementController
 
     private LocalPoint approachGoal(LocalPoint from, LocalPoint published)
     {
-        LocalPoint goal = objectApproach == null ? published : objectApproach.goal(from, published);
+        LocalPoint goal = objectApproach == null ? published : objectApproach.goal(from, published, this::canStep);
         approachGoal = interactionApproach ? goal : null;
         return goal;
     }
@@ -896,7 +945,8 @@ final class MovementController
         boolean checkedApproach = npcApproach != null && npcApproach.combat == null ||
             npcApproach == null && (interactionTarget != null || objectApproach != null);
         MovementPath redirected = checkedApproach
-            ? path.retargetApproachDestination(published, runEnabled(), now)
+            ? path.retargetApproachDestination(published, runEnabled(), now,
+                npcApproach == null && adjacentApproach(published))
             : path.retargetNativeApproach(published, runEnabled(), now);
         if (redirected != null)
         {
@@ -962,7 +1012,7 @@ final class MovementController
 
     private boolean previewPoseAllowed()
     {
-        return owner.getAnimation() == -1 || combatWalk && !interactionApproach && !nativeLocationAction(owner.getAnimation());
+        return owner.getAnimation() == -1 || (combatWalk || walkInput) && !interactionApproach && !nativeLocationAction(owner.getAnimation());
     }
 
     private void clearCombatWalk()
@@ -1033,6 +1083,7 @@ final class MovementController
         {
             path.cancel();
             clearCombatWalk();
+            walkInput = false;
             yellowFacing = preserveFacing = facingSettled = false;
         }
     }
@@ -1129,6 +1180,8 @@ final class MovementController
 
     void close()
     {
+        interactionFacing = null;
+        walkInput = false;
         followPresentation = null;
         clearCombat();
         clearCombatWalk();

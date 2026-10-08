@@ -914,6 +914,7 @@ public class NpcApproachControllerTest
         String[] combatStyles = {"Accurate", "Aggressive", "Controlled", "Defensive"};
         boolean present = true, starts = true, control, spot, run = true, npcDead, autoRetaliate;
         boolean originalWhenAligned = true;
+        boolean faceInteractionsOnArrival;
         int nativeOrientation;
         int spotId = 1, spotStartCycle, spotFrame;
         private ActorSpotAnim retainedSpot;
@@ -968,6 +969,7 @@ public class NpcApproachControllerTest
                 @Override public int clickSmoothingMs() { return smoothing; }
                 @Override public boolean recordTrace() { return traceEntries != null; }
                 @Override public boolean originalWhenAligned() { return originalWhenAligned; }
+                @Override public boolean faceInteractionsOnArrival() { return faceInteractionsOnArrival; }
             };
             controller = traceEntries == null ? new MovementController(client, config, () -> now) :
                 new MovementController(client, config, () -> now, new MovementTrace(() -> now, () -> 1790938361318L,

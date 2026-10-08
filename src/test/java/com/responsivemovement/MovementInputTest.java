@@ -64,8 +64,10 @@ public class MovementInputTest
         assertNull(input.destination(target, 101_000_000L, 1, 0));
         assertFalse(input.pending());
         input.click(null, 0, 1, 0, 500);
+        assertNull(input.destination(target, 20_000_000L, 1, 0));
+        assertNull(input.destination(target, 299_000_000L, 1, 0));
         assertEquals("out-of-range settings cannot add a long wait", target,
-            input.destination(target, 60_000_000L, 1, 0));
+            input.destination(target, 300_000_000L, 1, 0));
         input.click(null, 0, 1, 0, -50);
         assertEquals(target, input.destination(target, 0, 1, 0));
     }
@@ -88,6 +90,73 @@ public class MovementInputTest
         input.clear();
         assertNull(input.destination(target, 60_000_000L, 1, 0));
         assertFalse(input.takeReplacement());
+    }
+
+    @Test
+    public void nextGameTickReleasesTheLatchedClickWithoutReplacingItWithAnOldFlag()
+    {
+        LocalPoint target = new LocalPoint(1600, 1344, 0), old = new LocalPoint(1344, 1600, 0);
+        MovementInput input = new MovementInput();
+        input.click(old, 0, 1, 0, 300);
+        assertNull(input.destination(target, 20_000_000L, 1, 0));
+        input.gameTick(80_000_000L, 1, 0);
+        assertEquals(target, input.destination(old, 80_000_000L, 1, 0));
+        assertTrue(input.takeReplacement()); assertFalse(input.takeReplacement());
+        assertNull(input.destination(target, 901_000_000L, 1, 0));
+    }
+
+    @Test
+    public void tickBeforePublicationEndsTheWaitButCannotInventNativeDestinationEvidence()
+    {
+        LocalPoint target = new LocalPoint(1600, 1344, 0);
+        MovementInput input = new MovementInput();
+        input.click(null, 0, 1, 0, 300); input.gameTick(20_000_000L, 1, 0);
+        assertNull(input.destination(null, 20_000_000L, 1, 0));
+        assertEquals(target, input.destination(target, 40_000_000L, 1, 0));
+        input.click(target, 50_000_000L, 1, 0, 300); input.gameTick(60_000_000L, 1, 0);
+        assertNull("unchanged flag is still not a new click destination", input.destination(target, 80_000_000L, 1, 0));
+        assertNull(input.destination(target, 151_000_000L, 1, 0)); assertFalse(input.pending());
+    }
+
+    @Test
+    public void replacementClickDoesNotInheritThePreviousTicksEarlyRelease()
+    {
+        LocalPoint east = new LocalPoint(1600, 1344, 0), north = new LocalPoint(1344, 1600, 0);
+        MovementInput input = new MovementInput();
+        input.click(null, 0, 1, 0, 300); input.destination(east, 10_000_000L, 1, 0);
+        input.gameTick(20_000_000L, 1, 0);
+        input.click(east, 30_000_000L, 1, 0, 300);
+        assertNull(input.destination(north, 40_000_000L, 1, 0));
+        assertNull(input.destination(north, 100_000_000L, 1, 0));
+        input.gameTick(110_000_000L, 1, 0);
+        assertEquals(north, input.destination(east, 110_000_000L, 1, 0));
+    }
+
+    @Test
+    public void tickCannotReviveExpiredClearedOrOtherSceneInput()
+    {
+        LocalPoint target = new LocalPoint(1600, 1344, 0);
+        for (int change = 0; change < 4; ++change)
+        {
+            MovementInput input = new MovementInput(); input.click(null, 0, 1, 0, 300);
+            if (change == 0) { input.clear(); }
+            if (change == 1) { input.gameTick(101_000_000L, 1, 0); }
+            if (change == 2) { input.gameTick(20_000_000L, 2, 0); }
+            if (change == 3) { input.gameTick(20_000_000L, 1, 1); }
+            assertNull(input.destination(target, 40_000_000L, 1, 0)); assertFalse(input.pending());
+        }
+    }
+
+    @Test
+    public void zeroAndRedClicksKeepImmediatePublicationTiming()
+    {
+        LocalPoint target = new LocalPoint(1600, 1344, 0);
+        MovementInput input = new MovementInput();
+        input.click(null, 0, 1, 0, 0);
+        assertEquals(target, input.destination(target, 0, 1, 0));
+        input.clear(); input.gameTick(10_000_000L, 1, 0);
+        input.click(null, 20_000_000L, 1, 0);
+        assertEquals(target, input.destination(target, 20_000_000L, 1, 0));
     }
 
     @Test

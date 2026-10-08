@@ -14,7 +14,7 @@ public class WalkClickControllerTest
     {
         for (boolean run : new boolean[] {false, true})
         {
-            for (int smoothing : new int[] {0, 50, 60})
+            for (int smoothing : new int[] {0, 50, 60, 300})
             {
                 Fixture scene = fixture(), minimap = fixture();
                 scene.run = minimap.run = run;
@@ -238,6 +238,90 @@ public class WalkClickControllerTest
     }
 
     private static Fixture fixture() { return new Fixture(6080, 6592, 7000, 7000); }
+    @Test
+    public void smoothingUsesTheEarlierOfTheTimerAndNextTickForBothClickSources()
+    {
+        for (boolean run : new boolean[] {false, true})
+        {
+            for (int smoothing : new int[] {0, 50, 120, 300})
+            {
+                for (int tick : new int[] {20, 80, 180, 340})
+                {
+                    Fixture scene = fixture(), minimap = fixture();
+                    scene.run = minimap.run = run; scene.smoothing = minimap.smoothing = smoothing;
+                    walk(scene, false, p(6592, 6592), 0); walk(minimap, true, p(6592, 6592), 0);
+                    for (int ms = 0; ms <= 400; ms += 20)
+                    {
+                        if (ms == tick)
+                        {
+                            scene.at(ms); minimap.at(ms); scene.controller.gameTick(); minimap.controller.gameTick();
+                        }
+                        scene.frame(ms); minimap.frame(ms); assertSamePresentation(scene, minimap);
+                        if (ms < Math.min(smoothing, tick)) { assertEquals(scene.start, scene.controller.position()); }
+                        if (ms >= Math.min(smoothing, tick) + 20) { assertNotEquals(scene.start, scene.controller.position()); }
+                    }
+                    close(scene, minimap);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void tickPublicationReleasesSmoothingWhileAuthorityAdvancesOnlyOneMovementClock()
+    {
+        for (boolean minimap : new boolean[] {false, true})
+        {
+            Fixture f = fixture(); f.smoothing = 300;
+            walk(f, minimap, p(6592, 6592), 0); f.frame(0); f.frame(40);
+            assertEquals(f.start, f.controller.position());
+            f.authority = p(6336, 6592); f.at(60);
+            f.controller.gameTick(); assertEquals("tick observation does not advance movement", f.start, f.controller.position());
+            f.frame(60); assertEquals(f.start.getX() + 8, f.controller.position().getX());
+            f.frame(80); assertEquals(f.start.getX() + 16, f.controller.position().getX());
+            f.controller.close();
+        }
+    }
+
+    @Test
+    public void earlyTickKeepsTheFirstNativePublicationAndClickReplacementWindow()
+    {
+        Fixture f = fixture(); f.smoothing = 300;
+        LocalPoint first = p(6592, 6592), old = p(6080, 7104);
+        f.destination = old; walk(f, false, first, 0); f.frame(20);
+        f.destination = old; f.at(40); f.controller.gameTick(); f.frame(40);
+        assertEquals("an old flag cannot steal the tick-released eastbound click", 6592, f.controller.position().getY());
+        f.frame(60); // New idle seeds publish their gait before spending the next frame's movement budget.
+        assertTrue(f.controller.position().getX() > f.start.getX());
+        LocalPoint before = f.controller.position();
+        walk(f, false, p(5696, 6592), 60); f.frame(80);
+        assertTrue("a later click waits for its own timer/tick while existing travel continues", f.controller.position().getX() > before.getX());
+        f.at(100); f.controller.gameTick(); f.frame(100); before = f.controller.position();
+        f.frame(120); assertTrue(f.controller.position().getX() < before.getX());
+        f.controller.close();
+    }
+
+    @Test
+    public void ticksRespectNativeStartGatesAndDoNotInventMissingOrRedClickEvidence()
+    {
+        for (int guard = 0; guard < 5; ++guard)
+        {
+            Fixture f = fixture(); f.smoothing = 300;
+            if (guard == 0) { f.starts = false; }
+            if (guard == 1) { f.control = true; }
+            if (guard == 2) { f.spot = true; }
+            if (guard == 3) { f.animation = 1234; }
+            walk(f, false, p(6592, 6592), 0);
+            if (guard == 4) { f.destination = null; }
+            f.at(40); f.controller.gameTick(); f.frame(40); f.frame(80);
+            assertEquals(f.start, f.controller.position());
+            f.controller.close();
+        }
+        Fixture f = fixture();
+        f.controller.worldInteraction(f.sceneEvent(net.runelite.api.MenuAction.GROUND_ITEM_FIRST_OPTION, "Take", 123, 51, 51));
+        f.at(20); f.controller.gameTick(); f.frame(20); f.frame(120);
+        assertEquals(f.start, f.controller.position()); f.controller.close();
+    }
+
     private static LocalPoint p(int x, int y) { return new LocalPoint(x, y, 0); }
 
     private static void walk(Fixture f, boolean minimap, LocalPoint target, int millis)

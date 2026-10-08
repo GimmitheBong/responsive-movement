@@ -69,6 +69,7 @@ final class MovementTraceContext extends MovementTrace.Entry
         fields.put("configuredSpeed", config.movementSpeed());
         fields.put("effectiveSpeed", MovementPath.normalizeSpeed(MovementPath.configuredSpeed(config.movementSpeed())));
         fields.put("turnSpeed", config.turnSpeed());
+        fields.put("faceInteractionsOnArrival", config.faceInteractionsOnArrival());
         fields.put("smoothingMs", config.clickSmoothingMs());
         fields.put("snapDistance", config.snapDistance());
         fields.put("originalWhenAligned", config.originalWhenAligned());

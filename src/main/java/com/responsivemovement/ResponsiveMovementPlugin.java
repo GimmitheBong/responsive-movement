@@ -261,7 +261,11 @@ public class ResponsiveMovementPlugin extends Plugin
     @Subscribe
     public void onGameTick(GameTick event)
     {
-        if (active && client.getGameState() == GameState.LOGGED_IN) { overheads.tick(); }
+        if (active && client.getGameState() == GameState.LOGGED_IN)
+        {
+            if (supported) { movement.gameTick(); }
+            overheads.tick();
+        }
     }
 
     @Subscribe
