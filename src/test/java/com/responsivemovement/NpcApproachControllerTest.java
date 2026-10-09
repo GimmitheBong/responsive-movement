@@ -915,6 +915,12 @@ public class NpcApproachControllerTest
         boolean present = true, starts = true, control, spot, run = true, npcDead, autoRetaliate;
         boolean originalWhenAligned = true;
         boolean faceInteractionsOnArrival;
+        // Historical captures assert the original base-rate budget. New pacing
+        // tests explicitly enable catch-up rather than rewriting those fixtures.
+        boolean catchUp;
+        int catchUpPercent = 10;
+        boolean slowAhead;
+        int slowAheadPercent = 10;
         int nativeOrientation;
         int spotId = 1, spotStartCycle, spotFrame;
         private ActorSpotAnim retainedSpot;
@@ -972,6 +978,10 @@ public class NpcApproachControllerTest
                 @Override public boolean recordTrace() { return traceEntries != null; }
                 @Override public boolean originalWhenAligned() { return originalWhenAligned; }
                 @Override public boolean faceInteractionsOnArrival() { return faceInteractionsOnArrival; }
+                @Override public boolean catchUp() { return catchUp; }
+                @Override public int catchUpPercent() { return catchUpPercent; }
+                @Override public boolean slowAhead() { return slowAhead; }
+                @Override public int slowAheadPercent() { return slowAheadPercent; }
             };
             controller = traceEntries == null ? new MovementController(client, config, () -> now) :
                 new MovementController(client, config, () -> now, new MovementTrace(() -> now, () -> 1790938361318L,

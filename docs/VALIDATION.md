@@ -16,6 +16,97 @@ Movement** plugin must be disabled; the new plugin declares that conflict.
 
 ## Current status (supersedes dated pending notes below)
 
+**2026-10-09 ahead slowdown, pacing section and true-tile highlight: implemented; 639 tests pass; awaiting in-game confirmation.**
+The user reports **"thats working well"** for the previous catch-up addition,
+then requests equivalent slowdown ahead of authority and dedicated config sections.
+**Movement pacing** now groups both independent toggles and strengths; existing
+catch-up keys/group remain unchanged. **Slow down ahead of true tile** defaults
+on with **Ahead slowdown (%)** at 10 (0–50). Checked agreed previews progressively
+reduce base displayed speed over the first tile ahead of true-tile progress.
+Confirmed travel retains catch-up; stale reversal/awaiting-origin gaps, combat
+tracking, rejection recovery and close NPC startup easing retain their own policies.
+Exact integration spends the same single frame budget, including leftover time
+across a confirmed-to-preview boundary. Prediction geometry/credit/deadlines,
+native primary actions/models and capped facing remain unchanged.
+
+The independent **True tile** section adds **Show true tile** (default off),
+**Highlight tracking**, alpha-capable fill/border colours, **Border thickness**
+(0–10 px, default 2) and **Edge feather (px)** (0–20, default 0). Default **Server
+true tile** uses native `getWorldLocation()`, matching the authoritative tile even
+when the plugin's display differs. Server running updates can still skip a tile.
+Optional **Native movement tiles** samples the hidden native player's local
+position each overlay frame and highlights its containing tile, allowing observed
+intermediate run tiles. It is native interpolation rather than server authority;
+no missing route is reconstructed or custom display position substituted. Low
+render cadence/loading/teleports can still skip observed intermediate tiles.
+The overlay is stateless and independently registered/removed with the plugin;
+feathering uses bounded screen-space bands with isolated graphics state.
+
+Eleven new pacing tests cover bounded/zero strengths, walking/running, exact cadence
+parity through corners/knights, partial confirmed chords, shared catch-up/slowdown
+boundary timing, stale reversals, timeout/recovery, rebasing, repeated preparation,
+combat isolation and live scene/minimap toggles. Nine highlight tests cover server
+versus native/display identity, intermediate running tiles, view/plane/bounds checks,
+colour/opacity/width/feather raster output, graphics-state isolation and section/key
+stability. Two further capture tests replay the circle and marked-knight sequences
+at three cadences with both adjustments set to 10% and 50%.
+`.\gradlew.bat build --offline --console=plain --no-daemon` passes **639 tests**,
+zero failures/ignored tests, including all 617 previous checks. These API doubles
+and AWT/replay tests do not execute the native renderer or establish visual feel.
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Compare ahead slowdown off versus 10/25/50% during early starts and longer
+walking/running. Check gentle response and no added snap/retrace at server catch-up,
+then recheck circles/knights, scene/minimap clicks and interactions/combat/Follow.
+Enable the true tile with server tracking and compare an authoritative indicator
+while display leads/trails it. Try both tracking modes while running to observe
+native intermediate tiles, then walking, teleports, region/view transitions and
+native fallback. Adjust fill/border opacity and colours, border 0/2/10 and feather
+0/5/20, and disable/re-enable the plugin. Only the user can confirm in-game rendering;
+report any remaining symptom with a trace timestamp and UTC offset.
+
+**2026-10-09 configurable true-tile catch-up: user-confirmed working well for the tested situations; 617 tests passed at that checkpoint.**
+The user subsequently reports **"thats working well"**. This supersedes its initial
+pending runtime status; the new slowdown/highlight above require their own checks.
+Movement now offers **Catch up to true tile** (default on) and **Catch-up speed
+boost (%)** (default 10, range 0–50). A positive strength gently speeds up queued
+confirmed travel, tapering over its last tile. The percentage is relative to the
+configured walk/run pace; off or zero restores the earlier pacing immediately
+without resetting displayed position. MovementPath retains its one clock and
+checked route, with no new deadline, forecast distance or prediction credit.
+Speculative travel, pending reversals, unconfirmed chord endpoints and rejection
+recovery keep their prior pace. Slow melee pursuit and the continuous-run final
+100-ms reserve retain their existing easing.
+
+Seventeen new pacing/controller checks cover bounded strengths, walk/run speed
+scaling, taper/arrival, frame-splitting independence through corners/knights/local
+curves, live toggle changes, confirmed-prefix to speculative-tail frame accounting,
+reversals, partial confirmation, timeout, closing collision, rebasing, repeated
+preparation and melee-trail parity. A sustained native-run-pair double demonstrates
+reduced accumulated lag at the default boost. Two additional capture tests replay
+the circle and all 81 marked-knight clicks/pauses at 8.333/20/33.333-ms cadences
+with both 10% and 50%, checking arrivals, held stops and single movement/turn
+budgets. Earlier timing fixtures explicitly retain disabled catch-up to preserve
+their original base-rate assertions. These are API-double/replay checks, not
+native renderer execution or in-game visual confirmation.
+
+`.\gradlew.bat build --offline --console=plain --no-daemon` passes **617 tests**,
+zero failures/ignored tests, including all 598 previous checks. Click diagnostics
+now record both catch-up settings; their effective speed remains the base pace.
+
+User check: launch `.\gradlew.bat run` with 117 HD or GPU using
+[Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+Display a true-tile indicator and compare longer walking/running at your normal
+Movement speed with catch-up off, then on at 5/10/25/50%. Check that trailing
+movement closes the gap gently, stays on the checked route and settles without
+an overshoot or arrival snap. Change the toggle/strength mid-run, then recheck
+scene/minimap replacements, reciprocal knights/circles, objects/pickups/NPCs,
+combat/Walk escape, Follow and region crossings. Record a trace and report the
+local timestamp with UTC offset for any uneven catch-up. Only the user confirms
+the visual feel; the preceding marked-pause correction also retains its pending
+runtime status below.
+
 **2026-10-08 23:33 marked knight handoffs: implemented; 598 tests pass; awaiting in-game confirmation.**
 The user reports **"the running in circles is a lot better now"** and that most knight
 back-and-forths work really well, then supplies session `1791462766789`,

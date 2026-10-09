@@ -20,6 +20,30 @@ public class MarkedKnightHandoffTest
     @Test
     public void all81CapturedClicksAndEveryMarkedPauseKeepContinuousCheckedTravel() throws Exception
     {
+        replayMarkedKnights(0);
+    }
+
+    @Test
+    public void markedPausesAndLatestKnightHandoffsRemainStableWithCatchUpEnabled() throws Exception
+    {
+        replayMarkedKnights(10);
+        replayMarkedKnights(50);
+    }
+
+    @Test
+    public void markedPausesAndLatestKnightHandoffsRemainStableWithBothPacingOptions() throws Exception
+    {
+        replayMarkedKnights(10, 10);
+        replayMarkedKnights(50, 50);
+    }
+
+    private void replayMarkedKnights(int catchUpPercent) throws Exception
+    {
+        replayMarkedKnights(catchUpPercent, 0);
+    }
+
+    private void replayMarkedKnights(int catchUpPercent, int slowAheadPercent) throws Exception
+    {
         List<String[]> rows = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
             getClass().getResourceAsStream("marked-knights-2333.txt"),StandardCharsets.UTF_8)))
@@ -32,6 +56,8 @@ public class MarkedKnightHandoffTest
         {
             Fixture f = new Fixture(6208,6976,8000,8000);
             f.speed = 1.08; f.turnSpeed = 30; f.smoothing = 0; f.originalWhenAligned = false;
+            f.catchUp = true; f.catchUpPercent = catchUpPercent;
+            f.slowAhead = true; f.slowAheadPercent = slowAheadPercent;
             f.nativeOrientation = 1280; f.controller.close(); f.controller.update(); f.controller.presented();
             for (int[] column : f.flags) { Arrays.fill(column,CollisionDataFlag.BLOCK_MOVEMENT_FULL); }
             List<String[]> events = new ArrayList<>();
@@ -63,7 +89,8 @@ public class MarkedKnightHandoffTest
                 }
                 int angle = f.controller.orientation(); f.controller.update();
                 LocalPoint actual = f.controller.position();
-                assertTrue("one captured movement budget at " + t, MovementPath.distance(previous,actual) <= Math.ceil((t-previousTime)*0.00044)+1);
+                assertTrue("one captured movement budget at " + t, MovementPath.distance(previous,actual) <=
+                    Math.ceil((t-previousTime)*0.00044*(1+catchUpPercent/100.0))+1);
                 assertTrue("one captured turn budget at " + t, Math.abs(MotionMath.difference(angle,f.controller.orientation())) <= Math.ceil(30*(t-previousTime)/16_667.0)+1);
                 if (t >= 23_795_142 && t < 24_353_369)
                 {

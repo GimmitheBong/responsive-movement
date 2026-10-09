@@ -16,6 +16,9 @@ differs. **Movement speed** changes presentation pacing, not gameplay speed.
   minimap clicks, and supported object, item, and NPC interactions.
 - Collision-checked, time- and distance-bounded previews that reconcile to actual
   movement.
+- Adjustable gentle catch-up behind the true tile and slowdown ahead of it.
+- Optional true-tile highlight with configurable colours, border and feathering,
+  plus native between-tick movement-tile tracking.
 - Smooth turning and native equipment, action animations, and spot effects.
 - Optional adaptive camera following the displayed player, with native zoom and
   input handling.
@@ -48,10 +51,49 @@ by this preparation work. Use the development instructions below to try it.
 | Show native-position camera marker | Off | Fixed orb at the hidden native position while it differs from the displayed position. |
 | Record movement trace | Off | Local rotating diagnostic logs for investigating movement issues. |
 
+### Movement pacing
+
+Both adjustments and their strength settings now have their own config section.
+Existing catch-up settings are retained.
+
+| Setting | Default | What it controls |
+| --- | --- | --- |
+| Catch up to true tile | On | Gently boost displayed speed while completing confirmed movement to the true tile. |
+| Catch-up speed boost (%) | 10 | Maximum extra displayed speed, range 0–50%; tapers near the true tile. |
+| Slow down ahead of true tile | On | Gently slow a checked preview that leads true-tile progress. |
+| Ahead slowdown (%) | 10 | Maximum displayed speed reduction, range 0–50%; builds over the first tile ahead. |
+
+Strengths are relative to your Movement speed setting: **10%** allows up to
+**1.10×** that displayed pace while catching up, or reduces it toward **0.90×**
+when ahead. Each toggle is independent; 0 also disables its adjustment. Settings
+can be changed while moving without resetting position. Existing combat pursuit,
+rejection recovery and the small continuous-run arrival reserve retain their own
+pacing. Collision checks and prediction limits still apply.
+
+### True tile
+
+This has its own config section, independent of custom body and overhead rendering.
+
+| Setting | Default | What it controls |
+| --- | --- | --- |
+| Show true tile | Off | Enable the local player's native/server tile highlight. |
+| Highlight tracking | Server true tile | Server-authoritative tile, or native movement tiles between ticks. |
+| Fill colour | Translucent cyan | Fill colour and opacity. |
+| Border colour | Cyan | Border colour and opacity. |
+| Border thickness | 2 | Screen pixels, range 0–10; 0 hides the border. |
+| Edge feather (px) | 0 | Soft fill edge and border, range 0–20; 0 keeps a crisp edge. |
+
+**Server true tile** highlights the authoritative location, which can move two tiles
+per running tick. **Native movement tiles** samples the hidden native player's
+location every overlay frame, so it can show intermediate running tiles. It is
+the native client's interpolation rather than server authority, and never uses
+Responsive Movement's predicted/displayed position. Low frame rates, loading and
+teleports can still skip observations; no missing server route is invented.
+
 ## Limitations and validation
 
-Displayed position can briefly lead or trail the actual tile. Use a true-tile
-indicator when you need to see the authoritative location. Unsupported movement,
+Displayed position can briefly lead or trail the actual tile. Enable **True tile →
+Show true tile** with **Server true tile** tracking to see the authoritative location. Unsupported movement,
 teleports, unavailable models, and scene changes can use native presentation.
 The plugin does not remove the native client's loading stall.
 
@@ -62,8 +104,9 @@ but do not establish every interaction or renderer combination. See
 [validation notes](docs/VALIDATION.md) for confirmation scope and useful regression
 checks, including gates, region crossings, minimap input, and interaction approaches.
 The user reports substantially smoother circles and improved repeated knights.
-The newest marked-pause handoff follow-up passes regressions and awaits in-game
-confirmation; see the current validation status above those checks.
+The user confirms configurable catch-up is working well. The newest ahead slowdown
+and tile highlight pass regressions and await in-game confirmation, as does the
+marked-pause handoff follow-up; see the current validation status above those checks.
 
 ## Development
 

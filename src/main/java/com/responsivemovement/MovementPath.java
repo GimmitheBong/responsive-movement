@@ -1847,7 +1847,19 @@ final class MovementPath
 
     void advance(long now, boolean continuingRun)
     {
+        advance(now, continuingRun, 0);
+    }
+
+    void advance(long now, boolean continuingRun, int catchUpPercent)
+    {
+        advance(now, continuingRun, catchUpPercent, 0);
+    }
+
+    void advance(long now, boolean continuingRun, int catchUpPercent, int slowAheadPercent)
+    {
         turnFraction = 0;
+        double boost = Math.max(0, Math.min(50, catchUpPercent)) / 100.0;
+        double slowdown = Math.max(0, Math.min(50, slowAheadPercent)) / 100.0;
         double millis = Math.min(100, Math.max(0, now - lastNanos) / 1_000_000.0);
         lastNanos = now;
         if (speculative && now >= deadline) { cancel(); }
@@ -1871,11 +1883,13 @@ final class MovementPath
                 leg.curve = checkedJoin(leg);
                 walkContinuity = false;
             }
+            double debt = boost > 0 ? catchUpDebt() : 0;
+            double lead = slowdown > 0 && debt <= 0 ? forecastLead() : Double.NaN;
             if (leg.curve != null)
             {
                 JoinCurve curve = leg.curve;
                 double remaining = curve.length - curve.travel;
-                double spend = Math.min(remaining, travelRate * millis);
+                double spend = Math.min(remaining, pacedTravel(millis, travelRate, debt, boost, lead, slowdown));
                 if (spend > EPS)
                 {
                     curve.travel += spend;
@@ -1892,13 +1906,13 @@ final class MovementPath
                 }
                 if (curve.travel + EPS < curve.length) { break; }
                 x = curve.ex; y = curve.ey;
-                millis = Math.max(0, millis - spend / travelRate);
+                millis = Math.max(0, millis - pacedMillis(spend, travelRate, debt, boost, lead, slowdown));
                 leg.curve = null;
                 leg.headingX = leg.end.getX() - x; leg.headingY = leg.end.getY() - y;
                 if (Math.abs(x - leg.end.getX()) < EPS && Math.abs(y - leg.end.getY()) < EPS) { legs.removeFirst(); }
                 continue;
             }
-            double duration = distance / travelRate;
+            double duration = pacedMillis(distance, travelRate, debt, boost, lead, slowdown);
             if (millis > 0)
             {
                 lastLeg = leg;
@@ -1937,18 +1951,23 @@ final class MovementPath
                 // its small tail stays continuous until the next server step.
                 // No extra tile, itinerary, clock or prediction is introduced.
                 double reserve = travelRate * 100;
-                double normal = Math.min(millis, Math.max(0, (distance - reserve) / travelRate));
-                double remaining = distance - normal * travelRate;
+                // Catch up on the confirmed linear portion, retaining the native
+                // run's existing small final reserve at its ordinary rate.
+                double normalDistance = Math.max(0, distance - reserve);
+                double normal = Math.min(millis, catchUpMillis(normalDistance, travelRate, debt, boost));
+                double spend = Math.min(normalDistance, catchUpTravel(normal, travelRate, debt, boost));
+                double remaining = distance - spend;
                 double tail = millis - normal;
-                double fraction = (normal * travelRate + remaining * exponentialFraction(travelRate, tail, reserve)) / distance;
+                double fraction = (spend + remaining * exponentialFraction(travelRate, tail, reserve)) / distance;
                 turnFraction = fraction;
                 x += dx * fraction; y += dy * fraction;
                 break;
             }
             if (millis + EPS < duration)
             {
-                x += dx * millis / duration;
-                y += dy * millis / duration;
+                double fraction = pacedTravel(millis, travelRate, debt, boost, lead, slowdown) / distance;
+                x += dx * fraction;
+                y += dy * fraction;
                 break;
             }
             x = leg.end.getX(); y = leg.end.getY();
@@ -1956,6 +1975,109 @@ final class MovementPath
             legs.removeFirst();
         }
         if (legs.isEmpty()) { tangentX = tangentY = 0; }
+    }
+
+    /** Only a queued endpoint proven by authority is catch-up debt, not a forecast gap. */
+    private double catchUpDebt()
+    {
+        if (invalid || recovering || awaitingOrigin || reversalPreview || combatTrailing ||
+            Math.max(Math.abs(x - confirmed.getX()), Math.abs(y - confirmed.getY())) < EPS) { return 0; }
+        double debt = 0, px = x, py = y;
+        for (Leg leg : legs)
+        {
+            if (leg.curve != null)
+            {
+                debt += leg.curve.length - leg.curve.travel;
+                px = leg.curve.ex; py = leg.curve.ey;
+            }
+            debt += Math.max(Math.abs(leg.end.getX() - px), Math.abs(leg.end.getY() - py));
+            if (leg.end.equals(confirmed)) { return debt; }
+            px = leg.end.getX(); py = leg.end.getY();
+        }
+        return 0;
+    }
+
+    /** Exact integral of baseRate * (1 + boost * min(1, confirmedDebt / TILE)). */
+    private static double catchUpMillis(double distance, double baseRate, double debt, double boost)
+    {
+        if (boost <= 0 || debt <= 0) { return distance / baseRate; }
+        double accelerated = Math.min(distance, debt);
+        double full = Math.min(accelerated, Math.max(0, debt - TILE));
+        double from = Math.min(TILE, debt - full), to = Math.min(TILE, Math.max(0, debt - accelerated));
+        return full / (baseRate * (1 + boost)) +
+            TILE / (baseRate * boost) * Math.log1p(boost * (from - to) / (TILE + boost * to)) +
+            (distance - accelerated) / baseRate;
+    }
+
+    private static double catchUpTravel(double millis, double baseRate, double debt, double boost)
+    {
+        if (boost <= 0 || debt <= 0) { return baseRate * millis; }
+        double full = Math.max(0, debt - TILE);
+        double normal = Math.min(millis, full / (baseRate * (1 + boost)));
+        double spend = normal * baseRate * (1 + boost);
+        double remaining = debt - spend;
+        double tail = millis - normal;
+        double arrival = catchUpMillis(remaining, baseRate, remaining, boost);
+        if (tail >= arrival) { return debt + baseRate * (tail - arrival); }
+        return spend + (remaining + TILE / boost) * -Math.expm1(-baseRate * boost * tail / TILE);
+    }
+
+    /** Logical forecast progress minus remaining checked travel; never infer lead from a stale reversal gap. */
+    private double forecastLead()
+    {
+        if (!speculative || invalid || recovering || awaitingOrigin || reversalPreview || !agreement || replacement ||
+            easingNpcStart || combatTracking || preview.isEmpty()) { return Double.NaN; }
+        double forecast = 0;
+        for (int i = confirmedPreviewIndex + 1; i < preview.size(); ++i)
+        {
+            forecast += distance(preview.get(i - 1), preview.get(i));
+        }
+        double remaining = 0, px = x, py = y;
+        for (Leg leg : legs)
+        {
+            if (leg.curve != null)
+            {
+                remaining += leg.curve.length - leg.curve.travel;
+                px = leg.curve.ex; py = leg.curve.ey;
+            }
+            remaining += Math.max(Math.abs(leg.end.getX() - px), Math.abs(leg.end.getY() - py));
+            px = leg.end.getX(); py = leg.end.getY();
+        }
+        return forecast - remaining;
+    }
+
+    private static double pacedMillis(double distance, double rate, double debt, double boost, double lead, double slowdown)
+    {
+        return Double.isFinite(lead) ? aheadMillis(distance, rate, lead, slowdown) : catchUpMillis(distance, rate, debt, boost);
+    }
+
+    private static double pacedTravel(double millis, double rate, double debt, double boost, double lead, double slowdown)
+    {
+        return Double.isFinite(lead) ? aheadTravel(millis, rate, lead, slowdown) : catchUpTravel(millis, rate, debt, boost);
+    }
+
+    /** Exact integral of baseRate * (1 - slowdown * min(1, max(0, lead) / TILE)). */
+    private static double aheadMillis(double distance, double baseRate, double lead, double slowdown)
+    {
+        if (slowdown <= 0) { return distance / baseRate; }
+        double normal = Math.min(distance, Math.max(0, -lead));
+        double from = Math.min(TILE, Math.max(0, lead + normal));
+        double taper = Math.min(distance - normal, TILE - from);
+        return normal / baseRate + TILE / (baseRate * slowdown) *
+            -Math.log1p(-slowdown * taper / (TILE - slowdown * from)) +
+            (distance - normal - taper) / (baseRate * (1 - slowdown));
+    }
+
+    private static double aheadTravel(double millis, double baseRate, double lead, double slowdown)
+    {
+        if (slowdown <= 0) { return baseRate * millis; }
+        double normal = Math.min(millis, Math.max(0, -lead) / baseRate);
+        double spend = normal * baseRate;
+        double from = Math.min(TILE, Math.max(0, lead + spend));
+        double taperTime = aheadMillis(TILE - from, baseRate, from, slowdown);
+        double tail = millis - normal;
+        if (tail >= taperTime) { return spend + TILE - from + baseRate * (1 - slowdown) * (tail - taperTime); }
+        return spend + (TILE / slowdown - from) * -Math.expm1(-baseRate * slowdown * tail / TILE);
     }
 
     /** Blend a Walk join only inside the convex region proven by both checked orderings. */

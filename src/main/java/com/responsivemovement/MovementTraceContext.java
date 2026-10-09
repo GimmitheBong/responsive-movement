@@ -68,6 +68,10 @@ final class MovementTraceContext extends MovementTrace.Entry
         fields.put("responsiveStarts", config.responsiveStarts());
         fields.put("configuredSpeed", config.movementSpeed());
         fields.put("effectiveSpeed", MovementPath.normalizeSpeed(MovementPath.configuredSpeed(config.movementSpeed())));
+        fields.put("catchUp", config.catchUp());
+        fields.put("catchUpPercent", config.catchUpPercent());
+        fields.put("slowAhead", config.slowAhead());
+        fields.put("slowAheadPercent", config.slowAheadPercent());
         fields.put("turnSpeed", config.turnSpeed());
         fields.put("faceInteractionsOnArrival", config.faceInteractionsOnArrival());
         fields.put("smoothingMs", config.clickSmoothingMs());

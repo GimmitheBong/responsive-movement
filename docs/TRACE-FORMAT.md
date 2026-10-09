@@ -21,6 +21,11 @@ managed folder does not already exist. This does not change the trace schema.
   world/native/display positions and footprint, run/energy/Ctrl state, movement
   settings, and the clicked NPC's definition ID, index, name and world footprint.
   New click contexts include `faceInteractionsOnArrival`; older captures omit it.
+  The 2026-10-09 pacing additions record `catchUp`, `catchUpPercent`, `slowAhead`
+  and `slowAheadPercent`. `effectiveSpeed` still denotes the configured base pace,
+  not an instantaneous adjustment. Confirmed catch-up tapers over its last tile;
+  eligible unconfirmed travel progressively slows over its first tile ahead.
+  The independent tile highlight does not alter trace positions or authority.
   No NPC/scene enumeration is used. Walk contexts without a menu event have no
   menu parameters; the native published destination remains their target evidence.
 - `[RESPONSIVE-MOVEMENT-COLLISION]`: copied collision columns for that click.

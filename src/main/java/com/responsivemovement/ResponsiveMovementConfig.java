@@ -1,5 +1,7 @@
 package com.responsivemovement;
 
+import java.awt.Color;
+import net.runelite.client.config.Alpha;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
@@ -13,9 +15,13 @@ public interface ResponsiveMovementConfig extends Config
 
     @ConfigSection(name = "Movement", description = "One renderer for all movement", position = 0)
     String MOVEMENT = "movement";
-    @ConfigSection(name = "Camera", description = "Presentation camera and native zoom", position = 1)
+    @ConfigSection(name = "Movement pacing", description = "Adjust displayed speed relative to the true tile", position = 1)
+    String PACING = "pacing";
+    @ConfigSection(name = "True tile", description = "Highlight the server tile or observed native movement tiles", position = 2)
+    String TRUE_TILE = "trueTile";
+    @ConfigSection(name = "Camera", description = "Presentation camera and native zoom", position = 3)
     String CAMERA = "camera";
-    @ConfigSection(name = "Overheads", description = "Overheads at the visible player", position = 2)
+    @ConfigSection(name = "Overheads", description = "Overheads at the visible player", position = 4)
     String OVERHEADS = "overheads";
 
     @ConfigItem(keyName = "responsiveStarts", name = "Responsive starts", position = 0,
@@ -56,6 +62,52 @@ public interface ResponsiveMovementConfig extends Config
     @ConfigItem(keyName = "faceInteractionsOnArrival", name = "Face interactions on arrival", position = 8,
         description = "Instantly turn to NPCs/objects the moment you arrive at them", section = MOVEMENT)
     default boolean faceInteractionsOnArrival() { return false; }
+
+    @ConfigItem(keyName = "catchUp", name = "Catch up to true tile", position = 0,
+        description = "Gently increase displayed speed while behind confirmed true-tile movement", section = PACING)
+    default boolean catchUp() { return true; }
+
+    @ConfigItem(keyName = "catchUpPercent", name = "Catch-up speed boost (%)", position = 1,
+        description = "Maximum extra displayed speed when catching up (0–50%). Tapers near the true tile; 0 disables the boost", section = PACING)
+    @Range(min = 0, max = 50)
+    default int catchUpPercent() { return 10; }
+
+    @ConfigItem(keyName = "slowAhead", name = "Slow down ahead of true tile", position = 2,
+        description = "Gently reduce displayed speed when a checked preview leads the true tile", section = PACING)
+    default boolean slowAhead() { return true; }
+
+    @ConfigItem(keyName = "slowAheadPercent", name = "Ahead slowdown (%)", position = 3,
+        description = "Maximum displayed speed reduction (0–50%). Builds over the first tile ahead; 0 disables slowdown", section = PACING)
+    @Range(min = 0, max = 50)
+    default int slowAheadPercent() { return 10; }
+
+    @ConfigItem(keyName = "showTrueTile", name = "Show true tile", position = 0,
+        description = "Highlight the real server tile independently of the plugin's displayed player", section = TRUE_TILE)
+    default boolean showTrueTile() { return false; }
+
+    @ConfigItem(keyName = "trueTileMode", name = "Highlight tracking", position = 1,
+        description = "Server true tile is tick-authoritative. Native movement tiles follows the hidden native player between ticks, including intermediate running tiles", section = TRUE_TILE)
+    default TrueTileMode trueTileMode() { return TrueTileMode.SERVER_TRUE_TILE; }
+
+    @Alpha
+    @ConfigItem(keyName = "trueTileFill", name = "Fill colour", position = 2,
+        description = "True-tile fill colour and opacity", section = TRUE_TILE)
+    default Color trueTileFill() { return new Color(0, 200, 255, 40); }
+
+    @Alpha
+    @ConfigItem(keyName = "trueTileBorder", name = "Border colour", position = 3,
+        description = "True-tile border colour and opacity", section = TRUE_TILE)
+    default Color trueTileBorder() { return new Color(0, 200, 255, 200); }
+
+    @ConfigItem(keyName = "trueTileBorderWidth", name = "Border thickness", position = 4,
+        description = "Border width in screen pixels; 0 hides the border", section = TRUE_TILE)
+    @Range(min = 0, max = 10)
+    default int trueTileBorderWidth() { return 2; }
+
+    @ConfigItem(keyName = "trueTileFeather", name = "Edge feather (px)", position = 5,
+        description = "Soften the fill edge and border in screen pixels; 0 keeps a crisp highlight", section = TRUE_TILE)
+    @Range(min = 0, max = 20)
+    default int trueTileFeather() { return 0; }
 
     @ConfigItem(keyName = "adaptiveCamera", name = "Adaptive camera", position = 0,
         description = "Follow the visible player during rendering; native mode is used for menus and input", section = CAMERA)

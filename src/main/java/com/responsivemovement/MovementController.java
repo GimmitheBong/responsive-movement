@@ -581,7 +581,8 @@ final class MovementController
         boolean continuingRun = !interactionApproach && (!actionOrEffect || ownedWalk) && !input.pending() &&
             runEnabled() && MovementPath.sameView(destination, authoritative) && !destination.equals(authoritative) &&
             !nativePoint.equals(authoritative);
-        path.advance(now, continuingRun);
+        path.advance(now, continuingRun, config.catchUp() ? config.catchUpPercent() : 0,
+            config.slowAhead() ? config.slowAheadPercent() : 0);
         boolean travelled = path.turnFraction() > 0;
         if (followingCombat) { combatContinuity.arrived(path.position()); }
         LocalPoint combatFaceTarget = followingCombat && (!path.moving() || npcApproach.adjacentCombat() && combatContinuity.locked)

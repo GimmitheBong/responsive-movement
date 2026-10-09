@@ -407,6 +407,39 @@ The retained rules include:
   applying a 2% change. The setting ranges from 0.5 to 10.0. Changing speed does
   not reset position.
 - One time budget per rendered update, including queued/corrective legs.
+- Optional **Catch up to true tile** (`catchUp`, default on) applies a bounded
+  displayed-speed boost only to queued travel ending at confirmed authority.
+  **Catch-up speed boost (%)** (`catchUpPercent`, default 10, clamped 0–50)
+  is relative to the configured base walk/run rate. The extra fraction is
+  `percent / 100 * min(1, remainingConfirmedTravel / 128)`, so it tapers over
+  the last tile and returns to base pace at authority. MovementPath integrates
+  that rate exactly against its existing frame-time budget, including curves,
+  corners and remaining time after crossing into an unconfirmed tail. Debt is
+  measured along the bounded queue, not by drawing a shortcut to the true tile.
+  A confirmed endpoint must remain in that queue; an unconfirmed knight endpoint,
+  an awaiting-origin/fresh reversal, speculative travel ahead of authority and
+  rejection recovery receive no extra pace. Slow melee pursuit retains its
+  existing rate; continuous confirmed running retains its base-rate final
+  100-ms exponential reserve. Toggling/changing strength does not reset fractional
+  position or the clock. Forecast construction uses the unboosted rate, and no
+  route, collision proof, deadline or prediction credit changes. The 2026-10-09
+  checkpoint passed 617 tests; the user subsequently confirms catch-up is working well
+  for their tested situations.
+- **Movement pacing** now groups the unchanged persisted `catchUp` /
+  `catchUpPercent` keys with **Slow down ahead of true tile** (`slowAhead`, default
+  on) and **Ahead slowdown (%)** (`slowAheadPercent`, default 10, clamped 0–50).
+  For an agreed checked forecast, MovementPath measures lead from logical
+  unconfirmed travel minus its remaining queued travel, including local curve arc
+  length. Rate becomes `baseRate * (1 - percent / 100 * min(1, max(0, lead) / 128))`.
+  This ramps from ordinary pace at authority to the configured reduction one tile
+  ahead. Exact time/distance integrals retain frame-splitting independence and the
+  same leftover time across a confirmed-to-preview boundary. A confirmed prefix
+  still uses catch-up when enabled; lead cannot slow it before authority. Stale
+  reversal/awaiting-origin gaps, disagreeing/recovering routes, close NPC startup
+  easing and combat tracking retain their existing policies. No authority, forecast
+  geometry/reserve/deadline, primary animation or facing budget changes. The new
+  639-test build includes both pacing options in the circle/marked-knight replays;
+  ahead slowdown awaits in-game confirmation.
 - A confirmed run can finish before the next native endpoint even with its gait
   bridge. While an ordinary native run remains in transit with a destination
   beyond authority and no action/pending input, its final checked leg now retains
@@ -701,6 +734,22 @@ Walk/combat ownership supplies evidence. The 01:32 replay and guards pass; in-ga
 confirmation is pending. See `agent-work/early-0132/CHECKPOINT.md`.
 
 ## Overheads, callbacks, and diagnostics
+
+`TrueTileOverlay` is an independent, stateless overlay registered/removed with the
+plugin. Its **True tile** config section offers an opt-in highlight, `@Alpha` fill
+and border colours, 0–10-pixel border thickness and 0–20-pixel edge feathering.
+It samples only the local player each overlay frame. Default **Server true tile**
+uses `getWorldLocation()` converted within the player's actual WorldView/plane.
+Optional **Native movement tiles** snaps `getLocalLocation()` to its containing
+tile, allowing intermediate native run tiles between ticks. That mode is explicitly
+native interpolation, not a faster server-authority stream. Neither mode reads
+MovementPath/custom display position, retains a route/clock, reconstructs missing
+steps or scans the scene. Invalid/missing/out-of-scene geometry is suppressed;
+stateless selection naturally adopts teleports/rebases/views without old highlights.
+RuneLite Perspective projects the actual tile; bounded screen-space AWT feather
+bands soften fill/border and use an isolated Graphics2D copy. Renderer/model/facing
+ownership is unaffected, and the overlay also works during native presentation.
+API-double geometry and AWT raster checks pass; visual renderer confirmation is pending.
 
 `MovementOverheads` retains the original prayer, skull and hitsplat PNGs, overhead
 text, HP bars, and Interface Styles HD-health-bar support. The overlay consumes

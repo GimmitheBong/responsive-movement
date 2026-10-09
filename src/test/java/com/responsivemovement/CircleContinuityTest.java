@@ -23,6 +23,30 @@ public class CircleContinuityTest
     @Test
     public void recordedSpamClickCircleKeepsOneBudgetAndArrivesAtTheLastActualEndpoint() throws Exception
     {
+        replayCircle(0);
+    }
+
+    @Test
+    public void recordedCircleKeepsItsBoundsAndArrivalWithCatchUpEnabled() throws Exception
+    {
+        replayCircle(10);
+        replayCircle(50);
+    }
+
+    @Test
+    public void recordedCircleKeepsItsBoundsAndArrivalWithBothPacingOptions() throws Exception
+    {
+        replayCircle(10, 10);
+        replayCircle(50, 50);
+    }
+
+    private void replayCircle(int catchUpPercent) throws Exception
+    {
+        replayCircle(catchUpPercent, 0);
+    }
+
+    private void replayCircle(int catchUpPercent, int slowAheadPercent) throws Exception
+    {
         List<String[]> rows = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
             getClass().getResourceAsStream("circle-2143.txt"), StandardCharsets.UTF_8)))
@@ -33,6 +57,8 @@ public class CircleContinuityTest
         {
             Fixture f = new Fixture(6848, 7616, 8000, 8000);
             f.speed = 1.08; f.turnSpeed = 25; f.smoothing = 0;
+            f.catchUp = true; f.catchUpPercent = catchUpPercent;
+            f.slowAhead = true; f.slowAheadPercent = slowAheadPercent;
             List<String[]> events = new ArrayList<>();
             for (int[] column : f.flags) { Arrays.fill(column, CollisionDataFlag.BLOCK_MOVEMENT_FULL); }
             for (String[] row : rows)
@@ -70,7 +96,7 @@ public class CircleContinuityTest
                 f.controller.update();
                 LocalPoint actual = f.controller.position();
                 assertTrue("one frame movement budget at " + t, MovementPath.distance(previous, actual) <=
-                    Math.ceil((t - previousTime) * 0.00044) + 1);
+                    Math.ceil((t - previousTime) * 0.00044 * (1 + catchUpPercent / 100.0)) + 1);
                 assertTrue("one capped turn budget at " + t, Math.abs(MotionMath.difference(angle, f.controller.orientation())) <=
                     Math.ceil(25 * (t - previousTime) / 16_667.0) + 1);
                 previous = actual; previousTime = t;
@@ -90,7 +116,7 @@ public class CircleContinuityTest
             // Compare at the native 20-ms grid: the uncorrected route contributes
             // 6.0925; this correction contributes 4.83 with the same recorded input.
             // This measures aggregate discontinuity, not the renderer or every turn.
-            if (cadence == 20_000) { assertTrue("reduce captured aggregate velocity kicks", energy < 5.5); }
+            if (cadence == 20_000 && catchUpPercent == 0 && slowAheadPercent == 0) { assertTrue("reduce captured aggregate velocity kicks", energy < 5.5); }
             f.controller.close();
         }
     }

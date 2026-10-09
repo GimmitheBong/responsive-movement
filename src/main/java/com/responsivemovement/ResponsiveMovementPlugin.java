@@ -51,6 +51,7 @@ public class ResponsiveMovementPlugin extends Plugin
     @Inject private MouseManager mouseManager;
     @Inject private OverlayManager overlayManager;
     @Inject private MovementOverheads overheads;
+    @Inject private TrueTileOverlay trueTile;
 
     private MovementController movement;
     private PresentationCamera camera;
@@ -136,6 +137,7 @@ public class ResponsiveMovementPlugin extends Plugin
         drawManager.registerEveryFrameListener(afterDraw);
         mouseManager.registerMouseListener(mouse);
         overlayManager.add(overheads);
+        overlayManager.add(trueTile);
     }
 
     @Override
@@ -149,6 +151,7 @@ public class ResponsiveMovementPlugin extends Plugin
         renderCallbacks.unregister(renderer);
         drawManager.unregisterEveryFrameListener(afterDraw);
         overlayManager.remove(overheads);
+        overlayManager.remove(trueTile);
         // Cleanup can be queued while the same plugin instance is re-enabled.
         // Capture the retiring controllers, never close a later startup's state.
         MovementController retiringMovement = movement;
